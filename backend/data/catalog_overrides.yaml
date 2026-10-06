@@ -1,0 +1,12 @@
+# Manual curation applied on top of the automatic tagging in scripts/import_catalog.py.
+# Re-run the script after editing. Use free-exercise-db ids.
+
+# Exercises the team decides are not safe or not relevant for LIMBER's scope.
+exclude: []
+#  - Some_Exercise_Id
+
+# Field overrides for specific exercises (any catalog field).
+patch: {}
+#  Calf_Raise_On_A_Dumbbell:
+#    difficulty: 2
+#    contraindications: [poor_balance]

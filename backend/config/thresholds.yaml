@@ -1,0 +1,47 @@
+# LIMBER decision thresholds.
+# Every number the scope check, filtering, and reevaluation rules use lives here
+# so the team can tune them without touching code. Values are frozen for testing.
+
+scope:
+  supported_regions: [lower_back, shoulder, knee, ankle]
+  # A starting pain of 7 or higher is out of scope.
+  max_starting_pain: 6
+  red_flags:
+    - numbness
+    - swelling
+    - loss_of_function
+    - pain_unrelated_to_activity
+
+# Starting difficulty is chosen from the intake pain level.
+difficulty_by_pain:
+  - { min_pain: 5, max_pain: 6, level: 1 }
+  - { min_pain: 3, max_pain: 4, level: 2 }
+  - { min_pain: 0, max_pain: 2, level: 3 }
+
+filtering:
+  # "exact": only exercises at the starting level (proposal wording).
+  # "at_most": the starting level and anything easier.
+  difficulty_match: exact
+
+plan:
+  min_exercises: 4
+  max_exercises: 6
+  default_frequency_per_week: 3
+
+reevaluation:
+  # Rule 1: refer to a licensed physical therapist
+  referral_session_pain: 8            # any single session at or above this
+  referral_avg_pain_rise_two_weeks: 2 # weekly average rise across two weeks
+  referral_no_improvement_weeks: 6    # pain not below intake after this many weeks
+  # Rule 2: reduce difficulty or frequency
+  reduce_avg_pain_rise_one_week: 1
+  reduce_completion_below: 0.5
+  # Rule 3: increase difficulty by one level
+  increase_completion_at_least: 0.8
+  increase_stable_weeks: 2
+  # Rule 4: request another assessment
+  reassess_after_weeks: 4
+
+ai:
+  timeout_seconds: 5
+  max_difficulty_change: 1
