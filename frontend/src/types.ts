@@ -6,6 +6,10 @@ export const RED_FLAGS = ["numbness", "swelling", "loss_of_function", "pain_unre
 
 export type BodyRegion = (typeof BODY_REGIONS)[number];
 
+// Regions LIMBER builds plans for (scope.supported_regions). The rest are accepted only so they can be referred.
+export const SUPPORTED_REGIONS = ["lower_back", "shoulder", "knee", "ankle"] as const satisfies readonly BodyRegion[];
+export const OTHER_REGIONS = ["neck", "hip", "wrist", "other"] as const satisfies readonly BodyRegion[];
+
 export interface AssessmentCreate {
   body_region: BodyRegion;
   pain_level: number;
@@ -36,6 +40,8 @@ export interface Exercise {
   reps_min: number;
   reps_max: number;
   media: string[];
+  contraindications: string[];
+  targets_activities: string[];
 }
 
 export interface Plan {
@@ -50,3 +56,33 @@ export interface Plan {
 }
 
 export const label = (s: string) => s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+
+// Plain-language copy for the intake and library. Falls back to label() for anything missing.
+const COPY: Record<string, string> = {
+  lower_back: "Lower back",
+  other: "Somewhere else",
+  cannot_kneel: "I can't kneel",
+  cannot_lie_on_floor: "I can't get down on the floor",
+  limited_overhead_reach: "I can't reach overhead comfortably",
+  poor_balance: "My balance isn't great",
+  no_equipment: "I don't have any equipment",
+  sitting_long: "Sitting for a long time",
+  reaching_overhead: "Reaching overhead",
+};
+export const copy = (s: string) => COPY[s] ?? label(s);
+
+export const RED_FLAG_COPY: Record<string, { title: string; hint: string }> = {
+  numbness: { title: "Numbness or tingling", hint: "Pins and needles or loss of feeling in an arm, leg, hand, or foot" },
+  swelling: { title: "Noticeable swelling", hint: "The area looks puffy or bigger than the other side" },
+  loss_of_function: { title: "Can't use it normally", hint: "You can't put weight on it, grip, or move it the way you usually can" },
+  pain_unrelated_to_activity: { title: "Pain that doesn't change with movement", hint: "It hurts at rest or at night no matter what you do" },
+};
+
+/** Turns a backend referral reason like "pain_too_high:8" into a sentence. */
+export function referralText(reason: string): string {
+  const [kind, value = ""] = reason.split(":");
+  if (kind === "unsupported_region") return `LIMBER only covers the lower back, shoulder, knee, and ankle (you chose ${copy(value).toLowerCase()}).`;
+  if (kind === "pain_too_high") return `Your pain level (${value}/10) is higher than a self-guided plan should handle.`;
+  if (kind === "red_flag") return `You reported: ${RED_FLAG_COPY[value]?.title.toLowerCase() ?? label(value).toLowerCase()}.`;
+  return label(reason);
+}

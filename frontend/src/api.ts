@@ -13,8 +13,15 @@ export const auth = {
 
 export class ApiError extends Error {
   constructor(public status: number, public detail: unknown) {
-    super(typeof detail === "string" ? detail : (detail as { message?: string })?.message ?? `HTTP ${status}`);
+    super(errorMessage(status, detail));
   }
+}
+
+// FastAPI returns a string detail for HTTPException and a list of field errors for 422s.
+function errorMessage(status: number, detail: unknown): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) return detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(". ") || `HTTP ${status}`;
+  return (detail as { message?: string })?.message ?? `HTTP ${status}`;
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -28,8 +35,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  register: (email: string, password: string) =>
-    request<{ access_token: string }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
+  register: (email: string, password: string, display_name = "") =>
+    request<{ access_token: string }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, display_name }),
+    }),
   login: (email: string, password: string) =>
     request<{ access_token: string }>("/auth/login", {
       method: "POST",
@@ -37,7 +47,9 @@ export const api = {
     }),
   createAssessment: (a: AssessmentCreate) =>
     request<Assessment>("/assessments", { method: "POST", body: JSON.stringify(a) }),
+  latestAssessment: () => request<Assessment>("/assessments/latest"),
   createPlan: () => request<Plan>("/plans", { method: "POST" }),
   currentPlan: () => request<Plan>("/plans/current"),
+  exercises: () => request<Exercise[]>("/exercises"),
   exercise: (id: string) => request<Exercise>(`/exercises/${encodeURIComponent(id)}`),
 };
