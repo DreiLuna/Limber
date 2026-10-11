@@ -9,12 +9,13 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.modules.ai.models import AIOutputLog
 from app.modules.ai.planner import get_planner_client, plan_with_fallback
+from app.modules.assessment.eligibility import EligibilityService
 from app.modules.assessment.models import Assessment
 from app.modules.catalog.models import Exercise
 from app.modules.plans.models import PlanItem, RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
 from app.modules.plans.schemas import PlanOut
-from app.modules.recommendation.filtering import InsufficientExercisesError, filter_exercises
+from app.modules.recommendation.filtering import InsufficientExercisesError
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/plans", tags=["plans"])
@@ -29,17 +30,15 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     )
     if assessment is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Complete an assessment first")
-    if not assessment.in_scope:
+    eligibility = EligibilityService(t).evaluate(assessment, db.scalars(select(Exercise)).all())
+    if not eligibility.scope.in_scope:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             {"message": "Out of scope: see a licensed physical therapist",
-             "referral_reasons": assessment.referral_reasons},
+             "referral_reasons": eligibility.scope.referral_reasons},
         )
 
-    catalog = db.scalars(select(Exercise)).all()
-    eligible = filter_exercises(
-        catalog, assessment.body_region, assessment.limitations, assessment.starting_difficulty
-    )
+    eligible = eligibility.exercises
     client = get_planner_client()
     try:
         result = plan_with_fallback(eligible, assessment.activity_difficulties, client)
@@ -68,7 +67,7 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     freq = t["plan"]["default_frequency_per_week"]
     start = date.today()
     plan = RecoveryPlan(
-        user_id=user.id, assessment_id=assessment.id, difficulty_level=assessment.starting_difficulty,
+        user_id=user.id, assessment_id=assessment.id, difficulty_level=eligibility.scope.starting_difficulty,
         frequency_per_week=freq, source=result.source, start_date=start,
     )
     plan.items = [
