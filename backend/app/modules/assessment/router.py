@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.modules.assessment.eligibility import EligibilityService
 from app.modules.assessment.models import Assessment
-from app.modules.assessment.schemas import AssessmentCreate, AssessmentOut
+from app.modules.assessment.schemas import AssessmentCreate, AssessmentOut, EligibilityOut
 from app.modules.assessment.scope import check_scope
+from app.modules.catalog.models import Exercise
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/assessments", tags=["assessment"])
@@ -42,3 +44,19 @@ def latest_assessment(user: User = Depends(get_current_user), db: Session = Depe
     if a is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No assessment yet")
     return a
+
+
+@router.get("/latest/eligibility", response_model=EligibilityOut)
+def latest_eligibility(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> EligibilityOut:
+    assessment = latest_assessment(user, db)
+    result = EligibilityService().evaluate(assessment, db.scalars(select(Exercise)).all())
+    return EligibilityOut(
+        assessment_id=assessment.id,
+        in_scope=result.scope.in_scope,
+        referral_reasons=result.scope.referral_reasons,
+        starting_difficulty=result.scope.starting_difficulty,
+        can_generate_plan=result.can_generate_plan,
+        eligible_exercises=result.exercises,
+    )
