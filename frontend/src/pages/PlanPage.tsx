@@ -27,7 +27,7 @@ export default function PlanPage() {
   const upcoming = plan.schedule.filter((s) => s.scheduled_date >= new Date().toISOString().slice(0, 10)).slice(0, 3);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Your recovery plan</h1>
         <p className="text-sm text-slate-500">
