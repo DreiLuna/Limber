@@ -9,6 +9,7 @@ from app.modules.assessment.models import Assessment
 from app.modules.assessment.schemas import AssessmentCreate, AssessmentOut, EligibilityOut
 from app.modules.assessment.scope import check_scope
 from app.modules.catalog.models import Exercise
+from app.modules.plans.models import RecoveryPlan
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/assessments", tags=["assessment"])
@@ -32,6 +33,12 @@ def create_assessment(
         starting_difficulty=result.starting_difficulty,
     )
     db.add(assessment)
+    if not result.in_scope:
+        # Save the referral and retire existing plans in the same transaction.
+        for plan in db.scalars(select(RecoveryPlan).where(
+            RecoveryPlan.user_id == user.id, RecoveryPlan.status == "active"
+        )):
+            plan.status = "referred"
     db.commit()
     return assessment
 
