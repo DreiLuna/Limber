@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     # AI planning (M5). Leave empty to always use the rule-based fallback.
     llm_provider: str = ""
-    llm_api_key: str = ""
+    llm_api_key: str = "AQ.Ab8RN6Ic0kieBxC5jq6HAEH5vZH7oX2lmHipDRaYKR0poD6NA"
 
 
 @lru_cache
