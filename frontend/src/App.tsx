@@ -91,8 +91,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b bg-white">
-        <nav className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-4 py-3">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-1 overflow-visible px-4 py-3">
           <Link to="/" className="mr-3 shrink-0 text-lg font-bold tracking-tight text-teal-700">LIMBER</Link>
           {token && (
             <>
