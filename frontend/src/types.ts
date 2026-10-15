@@ -6,7 +6,6 @@ export const RED_FLAGS = ["numbness", "swelling", "loss_of_function", "pain_unre
 
 export type BodyRegion = (typeof BODY_REGIONS)[number];
 
-// Regions LIMBER builds plans for (scope.supported_regions). The rest are accepted only so they can be referred.
 export const SUPPORTED_REGIONS = ["lower_back", "shoulder", "knee", "ankle"] as const satisfies readonly BodyRegion[];
 export const OTHER_REGIONS = ["neck", "hip", "wrist", "other"] as const satisfies readonly BodyRegion[];
 
@@ -55,19 +54,57 @@ export interface Plan {
   schedule: { id: number; scheduled_date: string; week_index: number }[];
 }
 
+export interface SessionLog {
+  id: number;
+  plan_id: number;
+  scheduled_session_id: number | null;
+  performed_at: string;
+  completed: boolean;
+  pain_before: number;
+  pain_after: number;
+  perceived_difficulty: number;
+}
+
+export interface SessionCreate {
+  scheduled_session_id: number | null;
+  completed: boolean;
+  pain_before: number;
+  pain_after: number;
+  perceived_difficulty: number;
+  new_red_flags: string[];
+  notes?: string;
+}
+
+export interface WeekStats {
+  week_index: number;
+  completion_rate: number;
+  avg_post_pain: number | null;
+  max_session_pain: number | null;
+  pain_change: number | null;
+  missed_sessions: number;
+}
+
+export interface Progress {
+  plan_id: number;
+  weeks: WeekStats[];
+  explanation: string;
+}
+
+export interface Notification {
+  id: number;
+  kind: string;
+  message: string;
+  send_at: string;
+  read: boolean;
+}
+
 export const label = (s: string) => s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
-// Plain-language copy for the intake and library. Falls back to label() for anything missing.
 const COPY: Record<string, string> = {
-  lower_back: "Lower back",
-  other: "Somewhere else",
-  cannot_kneel: "I can't kneel",
-  cannot_lie_on_floor: "I can't get down on the floor",
-  limited_overhead_reach: "I can't reach overhead comfortably",
-  poor_balance: "My balance isn't great",
-  no_equipment: "I don't have any equipment",
-  sitting_long: "Sitting for a long time",
-  reaching_overhead: "Reaching overhead",
+  lower_back: "Lower back", other: "Somewhere else", cannot_kneel: "I can't kneel",
+  cannot_lie_on_floor: "I can't get down on the floor", limited_overhead_reach: "I can't reach overhead comfortably",
+  poor_balance: "My balance isn't great", no_equipment: "I don't have any equipment",
+  sitting_long: "Sitting for a long time", reaching_overhead: "Reaching overhead",
 };
 export const copy = (s: string) => COPY[s] ?? label(s);
 
@@ -78,7 +115,6 @@ export const RED_FLAG_COPY: Record<string, { title: string; hint: string }> = {
   pain_unrelated_to_activity: { title: "Pain that doesn't change with movement", hint: "It hurts at rest or at night no matter what you do" },
 };
 
-/** Turns a backend referral reason like "pain_too_high:8" into a sentence. */
 export function referralText(reason: string): string {
   const [kind, value = ""] = reason.split(":");
   if (kind === "unsupported_region") return `LIMBER only covers the lower back, shoulder, knee, and ankle (you chose ${copy(value).toLowerCase()}).`;

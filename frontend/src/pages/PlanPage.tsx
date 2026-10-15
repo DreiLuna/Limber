@@ -27,7 +27,7 @@ export default function PlanPage() {
   const upcoming = plan.schedule.filter((s) => s.scheduled_date >= new Date().toISOString().slice(0, 10)).slice(0, 3);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Your recovery plan</h1>
         <p className="text-sm text-slate-500">
@@ -36,7 +36,8 @@ export default function PlanPage() {
       </div>
       <section className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="mb-2 font-medium">Next sessions</h2>
-        <ul className="text-sm">{upcoming.map((s) => <li key={s.id}>{s.scheduled_date} (week {s.week_index + 1})</li>)}</ul>
+        {upcoming.length ? <ul className="text-sm">{upcoming.map((s) => <li key={s.id}>{s.scheduled_date} (week {s.week_index + 1})</li>)}</ul> : <p className="text-sm text-slate-500">No upcoming sessions are scheduled.</p>}
+        <Link to="/progress" className="mt-3 inline-block text-sm font-medium text-teal-800 underline">Log a session or view progress</Link>
       </section>
       <ol className="space-y-4">
         {plan.items.map((item) => {

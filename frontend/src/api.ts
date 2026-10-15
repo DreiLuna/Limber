@@ -1,4 +1,4 @@
-import type { Assessment, AssessmentCreate, Exercise, Plan } from "./types";
+import type { Assessment, AssessmentCreate, Exercise, Notification, Plan, Progress, SessionCreate, SessionLog } from "./types";
 
 const TOKEN_KEY = "limber_token";
 
@@ -17,7 +17,6 @@ export class ApiError extends Error {
   }
 }
 
-// FastAPI returns a string detail for HTTPException and a list of field errors for 422s.
 function errorMessage(status: number, detail: unknown): string {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) return detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(". ") || `HTTP ${status}`;
@@ -37,8 +36,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const api = {
   register: (email: string, password: string, display_name = "") =>
     request<{ access_token: string }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, password, display_name }),
+      method: "POST", body: JSON.stringify({ email, password, display_name }),
     }),
   login: (email: string, password: string) =>
     request<{ access_token: string }>("/auth/login", {
@@ -52,4 +50,11 @@ export const api = {
   currentPlan: () => request<Plan>("/plans/current"),
   exercises: () => request<Exercise[]>("/exercises"),
   exercise: (id: string) => request<Exercise>(`/exercises/${encodeURIComponent(id)}`),
+  progress: () => request<Progress>("/progress"),
+  sessions: () => request<SessionLog[]>("/sessions"),
+  logSession: (session: SessionCreate) =>
+    request<SessionLog>("/sessions", { method: "POST", body: JSON.stringify(session) }),
+  notifications: () => request<Notification[]>("/notifications"),
+  markNotificationRead: (id: number) =>
+    request<Notification>(`/notifications/${id}/read`, { method: "POST" }),
 };

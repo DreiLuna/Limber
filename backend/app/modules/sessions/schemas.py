@@ -11,8 +11,8 @@ class SessionCreate(BaseModel):
     pain_before: int = Field(ge=0, le=10)
     pain_after: int = Field(ge=0, le=10)
     perceived_difficulty: int = Field(ge=1, le=5)
-    too_difficult_exercise_ids: list[str] = []
-    new_red_flags: list[RedFlag] = []
+    too_difficult_exercise_ids: list[str] = Field(default_factory=list)
+    new_red_flags: list[RedFlag] = Field(default_factory=list)
     notes: str | None = Field(default=None, max_length=2000)
 
 

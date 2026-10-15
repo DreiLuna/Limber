@@ -14,5 +14,4 @@ class Notification(TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String(30))  # reminder, referral, plan_change
     message: Mapped[str] = mapped_column(Text)
     send_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     read: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -1,16 +1,17 @@
-from datetime import date
+from datetime import UTC, date, datetime, time
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_thresholds
-from app.core.database import get_db
+from app.core.database import get_db, utcnow
 from app.core.deps import get_current_user
 from app.modules.ai.models import AIOutputLog
 from app.modules.ai.planner import get_planner_client, plan_with_fallback
 from app.modules.assessment.models import Assessment
 from app.modules.catalog.models import Exercise
+from app.modules.notifications.models import Notification
 from app.modules.plans.models import PlanItem, RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
 from app.modules.plans.schemas import PlanOut
@@ -65,6 +66,12 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     )):
         old.status = "superseded"
 
+    # Remove future unread reminders tied to the plan being replaced.
+    db.execute(delete(Notification).where(
+        Notification.user_id == user.id, Notification.kind == "reminder",
+        Notification.read.is_(False), Notification.send_at >= utcnow(),
+    ))
+
     freq = t["plan"]["default_frequency_per_week"]
     start = date.today()
     plan = RecoveryPlan(
@@ -80,6 +87,17 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
         for d, w in build_schedule(start, freq, t["reevaluation"]["reassess_after_weeks"])
     ]
     db.add(plan)
+    # Persist reminders for display in the in-app Reminders tab.
+    for scheduled in plan.schedule:
+        message = (
+            f"You have a LIMBER recovery session scheduled for {scheduled.scheduled_date.isoformat()}. "
+            "Open My plan to follow the exercises and log your session."
+        )
+        db.add(Notification(
+            user_id=user.id, kind="reminder",
+            message=message,
+            send_at=datetime.combine(scheduled.scheduled_date, time(9), tzinfo=UTC), read=False,
+        ))
     db.commit()
     db.refresh(plan)
     return plan

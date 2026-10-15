@@ -71,3 +71,44 @@ def test_invalid_intake_values_rejected(client, make_user):
     h = make_user()
     assert client.post("/api/assessments", headers=h, json={"body_region": "knee", "pain_level": 11}).status_code == 422
     assert client.post("/api/assessments", headers=h, json={"body_region": "elbow", "pain_level": 3}).status_code == 422
+
+
+def test_session_progress_and_notifications(client, make_user):
+    h = make_user()
+    client.post("/api/assessments", headers=h, json={"body_region": "knee", "pain_level": 4})
+    plan = client.post("/api/plans", headers=h).json()
+    scheduled = plan["schedule"][0]
+
+    logged = client.post("/api/sessions", headers=h, json={
+        "scheduled_session_id": scheduled["id"], "completed": True,
+        "pain_before": 4, "pain_after": 3, "perceived_difficulty": 2,
+    })
+    assert logged.status_code == 201, logged.text
+    assert logged.json()["scheduled_session_id"] == scheduled["id"]
+    assert len(client.get("/api/sessions", headers=h).json()) == 1
+
+    progress = client.get("/api/progress", headers=h)
+    assert progress.status_code == 200, progress.text
+    first_week = progress.json()["weeks"][0]
+    assert first_week["completion_rate"] == 1
+    assert first_week["avg_post_pain"] == 3
+
+    reminders = client.get("/api/notifications", headers=h).json()
+    assert any(n["kind"] == "reminder" for n in reminders)
+    alert = client.post("/api/sessions", headers=h, json={
+        "completed": True, "pain_before": 8, "pain_after": 8,
+        "perceived_difficulty": 5, "new_red_flags": ["numbness"],
+    })
+    assert alert.status_code == 201
+    alerts = client.get("/api/notifications", headers=h).json()
+    assert alerts[0]["kind"] == "referral"
+    referral = next(n for n in alerts if n["kind"] == "referral")
+    marked = client.post(f"/api/notifications/{referral['id']}/read", headers=h)
+    assert marked.status_code == 200 and marked.json()["read"] is True
+    assert client.post(f"/api/notifications/{referral['id']}/read", headers=make_user()).status_code == 404
+
+    duplicate = client.post("/api/sessions", headers=h, json={
+        "scheduled_session_id": scheduled["id"], "completed": True,
+        "pain_before": 3, "pain_after": 3, "perceived_difficulty": 2,
+    })
+    assert duplicate.status_code == 409
