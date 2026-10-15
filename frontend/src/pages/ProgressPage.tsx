@@ -18,6 +18,8 @@ export default function ProgressPage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [sessions, setSessions] = useState<SessionLog[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationTab, setNotificationTab] = useState<"alerts" | "reminders">("alerts");
+  const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,11 @@ export default function ProgressPage() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const loggedScheduleIds = useMemo(
     () => new Set(sessions.map((s) => s.scheduled_session_id).filter((id): id is number => id !== null)),
     [sessions],
@@ -59,7 +66,15 @@ export default function ProgressPage() {
   const availableSessions = useMemo(() =>
     (plan?.schedule ?? []).filter((s) => s.scheduled_date <= today() && !loggedScheduleIds.has(s.id)),
   [plan, loggedScheduleIds]);
-  const unread = notifications.filter((n) => !n.read).length;
+  const withinNextDay = now + 24 * 60 * 60 * 1000;
+  const alertNotifications = notifications.filter((n) =>
+    n.kind !== "reminder" || Date.parse(n.send_at) <= withinNextDay,
+  );
+  const upcomingReminders = notifications
+    .filter((n) => n.kind === "reminder" && Date.parse(n.send_at) > withinNextDay)
+    .sort((a, b) => Date.parse(a.send_at) - Date.parse(b.send_at));
+  const visibleNotifications = notificationTab === "alerts" ? alertNotifications : upcomingReminders;
+  const unreadAlerts = alertNotifications.filter((n) => !n.read).length;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -162,14 +177,24 @@ export default function ProgressPage() {
       </section>
 
       <section className="rounded-xl bg-white p-5 shadow-sm" aria-labelledby="notifications-title">
-        <h2 id="notifications-title" className="mb-3 text-lg font-semibold">Reminders &amp; alerts {unread > 0 && <span className="text-sm font-normal text-teal-800">({unread} unread)</span>}</h2>
-        {notifications.length ? <ul className="space-y-3">{notifications.map((notice) => <li key={notice.id} className={`rounded-lg border p-3 ${notice.read ? "border-slate-100" : "border-teal-200 bg-teal-50/50"}`}>
+        <h2 id="notifications-title" className="mb-3 text-lg font-semibold">Alerts &amp; reminders</h2>
+        <div role="tablist" aria-label="Notification categories" className="mb-4 grid max-w-sm grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+          <button role="tab" aria-selected={notificationTab === "alerts"} onClick={() => setNotificationTab("alerts")}
+            className={`rounded-md px-3 py-2 text-sm ${notificationTab === "alerts" ? "bg-white font-medium shadow-sm" : "text-slate-600"}`}>
+            Alerts {unreadAlerts > 0 && <span>({unreadAlerts} unread)</span>}
+          </button>
+          <button role="tab" aria-selected={notificationTab === "reminders"} onClick={() => setNotificationTab("reminders")}
+            className={`rounded-md px-3 py-2 text-sm ${notificationTab === "reminders" ? "bg-white font-medium shadow-sm" : "text-slate-600"}`}>
+            Reminders {upcomingReminders.length > 0 && <span>({upcomingReminders.length})</span>}
+          </button>
+        </div>
+        {visibleNotifications.length ? <ul role="tabpanel" className="space-y-3">{visibleNotifications.map((notice) => <li key={notice.id} className={`rounded-lg border p-3 ${notice.read ? "border-slate-100" : "border-teal-200 bg-teal-50/50"}`}>
           <div className="flex flex-wrap items-start justify-between gap-2"><div>
-            <p className="font-medium">{notice.kind === "referral" ? "Please seek care" : notice.kind === "reminder" ? "Session reminder" : "Plan update"}</p>
+            <p className="font-medium">{notice.kind === "referral" ? "Please seek care" : notice.kind === "reminder" ? notificationTab === "alerts" ? "Session due soon" : "Session reminder" : "Plan update"}</p>
             <p className="mt-1 text-sm text-slate-700">{notice.message}</p>
             <p className="mt-1 text-xs text-slate-500">{dateLabel(notice.send_at)}</p>
           </div>{!notice.read && <button onClick={() => void markRead(notice)} className="text-sm text-teal-800 underline">Mark read</button>}</div>
-        </li>)}</ul> : <p className="text-sm text-slate-500">No reminders or alerts right now.</p>}
+        </li>)}</ul> : <p className="text-sm text-slate-500">{notificationTab === "alerts" ? "No alerts right now." : "No future reminders scheduled."}</p>}
       </section>
 
       <section className="rounded-xl bg-white p-5 shadow-sm" aria-labelledby="history-title">
