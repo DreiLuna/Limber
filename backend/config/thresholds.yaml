@@ -1,3 +1,5 @@
+# These are prototype policy values, not clinically validated thresholds.
+# Record published guidance or clinician review before use outside the student MVP.
 # LIMBER decision thresholds.
 # Every number the scope check, filtering, and reevaluation rules use lives here
 # so the team can tune them without touching code. Values are frozen for testing.

@@ -3,11 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.vocab import ActivityDifficulty, BodyRegion, Limitation, RedFlag
+from app.modules.catalog.schemas import ExerciseOut
 
 
 class AssessmentCreate(BaseModel):
     body_region: BodyRegion
-    pain_level: int = Field(ge=0, le=10)
+    pain_level: int = Field(strict=True, ge=0, le=10)
     limitations: list[Limitation] = []
     activity_difficulties: list[ActivityDifficulty] = []
     red_flags: list[RedFlag] = []
@@ -28,3 +29,12 @@ class AssessmentOut(BaseModel):
     referral_reasons: list[str]
     starting_difficulty: int | None
     created_at: datetime
+
+
+class EligibilityOut(BaseModel):
+    assessment_id: int
+    in_scope: bool
+    referral_reasons: list[str]
+    starting_difficulty: int | None
+    can_generate_plan: bool
+    eligible_exercises: list[ExerciseOut]

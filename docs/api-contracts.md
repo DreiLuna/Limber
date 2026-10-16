@@ -120,3 +120,22 @@ and automatic changes stop.
 The LLM must return JSON matching the Pydantic models in `backend/app/modules/ai/validation.py`:
 `AIPlanOutput`, `AIIntakeSuggestion`, `AIAdjustment`, and plain text for explanations.
 Anything that fails validation is logged in `ai_output_logs` and replaced by the fallback.
+
+
+## Assessment eligibility preview
+
+`GET /assessments/latest/eligibility` previews the current user’s approved exercise set.
+Returns `assessment_id`, `in_scope`, `referral_reasons`, `starting_difficulty`,
+`can_generate_plan`, and `eligible_exercises` (full exercise objects). Returns `404`
+if this user has no assessment, and `401` without authentication.
+An out-of-scope assessment returns no exercises. An in-scope assessment with fewer
+than the configured minimum returns its eligible list with `can_generate_plan: false`.
+Both this preview and plan generation use `EligibilityService`, which recomputes
+scope and filters by region, contraindications, and difficulty before planning.
+Planners must select only from this approved set.
+
+Pain must be a JSON integer from 0 to 10; booleans, strings, and fractional values return `422`.
+
+Thresholds in `backend/config/thresholds.yaml` are student MVP policy values. They
+require documented published guidance or clinician review before being treated
+as clinically validated rules.
