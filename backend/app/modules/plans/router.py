@@ -30,6 +30,12 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     )
     if assessment is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Complete an assessment first")
+    stopped = db.scalar(select(RecoveryPlan).where(
+        RecoveryPlan.user_id == user.id, RecoveryPlan.assessment_id == assessment.id,
+        RecoveryPlan.status.in_(["referred", "reassessment_required"]),
+    ).limit(1))
+    if stopped is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Complete a new check-in before creating another plan")
     if not assessment.in_scope:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
