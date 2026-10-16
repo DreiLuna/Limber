@@ -3,11 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_thresholds
 from app.core.database import get_db, utcnow
 from app.core.deps import get_current_user
-from app.modules.notifications.models import Notification
 from app.modules.plans.models import RecoveryPlan, ScheduledSession
+from app.modules.reevaluation.service import reevaluate_plan
 from app.modules.sessions.models import ExerciseSession, PainReport
 from app.modules.sessions.schemas import SessionCreate, SessionOut
 from app.modules.users.models import User
@@ -21,7 +20,7 @@ def log_session(
 ) -> SessionOut:
     plan = db.scalar(select(RecoveryPlan).where(
         RecoveryPlan.user_id == user.id, RecoveryPlan.status == "active"
-    ).order_by(RecoveryPlan.id.desc()).limit(1))
+    ).order_by(RecoveryPlan.id.desc()).limit(1).with_for_update())
     if plan is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Create an active plan before logging a session")
 
@@ -55,14 +54,8 @@ def log_session(
         red_flags=[flag.value for flag in body.new_red_flags],
     ))
 
-    thresholds = get_thresholds()["reevaluation"]
-    if body.new_red_flags or body.pain_after >= thresholds["referral_session_pain"]:
-        reason = "new warning symptoms" if body.new_red_flags else f"pain of {body.pain_after}/10 after a session"
-        db.add(Notification(
-            user_id=user.id, kind="referral",
-            message=f"Please contact a licensed physical therapist because you reported {reason}.",
-            send_at=utcnow(), read=False,
-        ))
+    db.flush()
+    reevaluate_plan(db, plan)
     db.commit()
     db.refresh(session)
     return session

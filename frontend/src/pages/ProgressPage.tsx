@@ -36,17 +36,19 @@ export default function ProgressPage() {
     setLoading(true);
     setError(null);
     try {
-      const [p, logs, alerts] = await Promise.all([api.currentPlan(), api.sessions(), api.notifications()]);
-      setPlan(p);
+      const [logs, alerts] = await Promise.all([api.sessions(), api.notifications()]);
       setSessions(logs);
       setNotifications(alerts);
-      setProgress(await api.progress());
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        setPlan(null); setProgress(null); setSessions([]); setNotifications([]);
-      } else {
-        setError(err instanceof Error ? err.message : "Could not load your tracking information.");
+      try {
+        setPlan(await api.currentPlan());
+        setProgress(await api.progress());
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setPlan(null); setProgress(null);
+        } else { throw err; }
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load your tracking information.");
     } finally {
       setLoading(false);
     }
@@ -105,8 +107,38 @@ export default function ProgressPage() {
     }
   }
 
+  async function reviewPlan() {
+    setBusy(true); setError(null); setSuccess(null);
+    try {
+      const result = await api.reevaluate();
+      const messages: Record<string, string> = {
+        continue: "Continue your current plan. Weekly adjustments use completed weeks of progress.",
+        reduce: "Your plan was reviewed. Check My plan for the current session frequency.",
+        increase: "Your exercise level was increased. Check My plan for the updated exercises.",
+        reassess: "Please complete a new check-in before continuing your plan.",
+        refer: "Your plan has been stopped. Please contact a licensed physical therapist.",
+      };
+      setSuccess(messages[result.action] ?? "Your plan was reviewed.");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not review your plan.");
+    } finally { setBusy(false); }
+  }
+
   if (loading) return <p role="status">Loading your progress…</p>;
-  if (!plan) return <div className="space-y-2"><h1 className="text-2xl font-semibold">Progress</h1><p className="text-slate-600">Create a recovery plan from Intake before you log sessions.</p></div>;
+  if (!plan) return <div className="space-y-4">
+    <h1 className="text-2xl font-semibold">Progress</h1>
+    {error && <p role="alert" className="text-red-800">{error}</p>}
+    {success && <p role="status">{success}</p>}
+    {notifications.filter((notice) => notice.kind === "referral" || notice.kind === "plan_update")
+      .map((notice) => <p key={notice.id} className="rounded-lg bg-amber-50 p-4">{notice.message}</p>)}
+    <p className="text-slate-600">There is no active recovery plan. Complete a new check-in to continue.</p>
+    <a href="/intake" className="text-teal-800 underline">Open check-in</a>
+    {sessions.length > 0 && <section><h2 className="font-semibold">Saved session history</h2>
+      <ul>{sessions.map((session) => <li key={session.id} className="py-2 text-sm">
+        {dateLabel(session.performed_at)} · Pain {session.pain_before} → {session.pain_after}/10
+      </li>)}</ul></section>}
+  </div>;
 
   return (
     <div className="space-y-7">
@@ -122,7 +154,10 @@ export default function ProgressPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div><h2 id="weekly-progress-title" className="text-lg font-semibold">Weekly progress</h2>
             <p className="text-sm text-slate-500">{progress?.explanation}</p></div>
-          <button onClick={() => void refresh()} className="text-sm text-teal-800 underline">Refresh</button>
+          <div className="flex gap-4">
+            <button disabled={busy} onClick={() => void reviewPlan()} className="text-sm text-teal-800 underline disabled:opacity-50">Review my plan</button>
+            <button onClick={() => void refresh()} className="text-sm text-teal-800 underline">Refresh</button>
+          </div>
         </div>
         {progress?.weeks.length ? <div className="space-y-4">
           {progress.weeks.map((week) => <div key={week.week_index} className="rounded-lg border border-slate-100 p-4">
@@ -204,7 +239,7 @@ export default function ProgressPage() {
           <span className="text-slate-600">Pain {session.pain_before} → {session.pain_after}/10 · difficulty {session.perceived_difficulty}/5</span>
         </li>)}</ul> : <p className="text-sm text-slate-500">No sessions logged yet.</p>}
       </section>
-      <p className="text-xs text-slate-500">If you report a warning symptom or pain of 8/10 or higher after a session, LIMBER will show an alert recommending that you contact a licensed physical therapist.</p>
+      <p className="text-xs text-slate-500">Plans are reviewed when you save a session. Weekly changes use completed weeks. A warning symptom or pain of 8/10 or higher before or after a session stops your plan and prompts you to contact a licensed physical therapist.</p>
     </div>
   );
 }
