@@ -12,7 +12,9 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
+from google import genai
 
+from app.modules.ai.validation import AIPlanOutput
 from app.core.config import get_settings
 from app.modules.ai.validation import validate_plan
 from app.modules.recommendation.filtering import (
@@ -24,6 +26,16 @@ from app.modules.recommendation.filtering import (
 
 class PlannerClient(Protocol):
     def propose_plan(self, eligible: list[dict[str, Any]], context: dict[str, Any]) -> dict | str:
+        interaction = Protocol.interactions.create(
+            model="gemini-3.8-flash",
+            input="Create a weekly plan consisting of eligible exercise taking context into consideration",
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": AIPlanOutput.model_json_schema()
+            },
+        )
+        return interaction
         """Return JSON matching ai.validation.AIPlanOutput. May raise on timeout or error."""
         ...
 
@@ -32,9 +44,10 @@ def get_planner_client() -> PlannerClient | None:
     s = get_settings()
     if not s.llm_provider or not s.llm_api_key:
         return None
-    # TODO(M5, Member 2): return a Claude or OpenAI client that requests structured JSON.
-    return None
 
+    client = genai.client(s.llm_api_key)
+    # TODO(M5, Member 2): return a Claude or OpenAI client that requests structured JSON.
+    return PlannerClient(client)
 
 @dataclass
 class PlanResult:
