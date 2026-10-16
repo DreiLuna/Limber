@@ -75,3 +75,51 @@ def test_out_of_scope_preview(client, make_user):
     assert not data["in_scope"] and not data["can_generate_plan"]
     assert data["eligible_exercises"] == []
     assert data["referral_reasons"] == ["unsupported_region:neck"]
+
+
+def test_stored_scope_flag_cannot_bypass_current_rules(client, make_user, monkeypatch):
+    from app.core.database import SessionLocal
+    from app.modules.assessment.models import Assessment
+
+    headers = make_user()
+    created = client.post("/api/assessments", headers=headers, json={
+        "body_region": "knee", "pain_level": 5,
+    }).json()
+    # Simulate a legacy/imported row whose cached scope no longer matches its data.
+    with SessionLocal() as db:
+        row = db.get(Assessment, created["id"])
+        row.pain_level = 8
+        row.in_scope = True
+        row.starting_difficulty = 1
+        db.commit()
+
+    def unexpected_planner_call():
+        pytest.fail("Out-of-scope data must be blocked before obtaining an AI client")
+
+    monkeypatch.setattr("app.modules.plans.router.get_planner_client", unexpected_planner_call)
+    preview = client.get("/api/assessments/latest/eligibility", headers=headers)
+    assert preview.status_code == 200
+    assert preview.json()["referral_reasons"] == ["pain_too_high:8"]
+    assert preview.json()["eligible_exercises"] == []
+    assert preview.json()["can_generate_plan"] is False
+    planned = client.post("/api/plans", headers=headers)
+    assert planned.status_code == 409
+    assert planned.json()["detail"]["referral_reasons"] == ["pain_too_high:8"]
+    assert client.get("/api/plans/current", headers=headers).status_code == 404
+
+
+def test_insufficient_catalog_blocks_preview_and_plan(client, make_user, monkeypatch, t):
+    headers = make_user()
+    client.post("/api/assessments", headers=headers, json={
+        "body_region": "knee", "pain_level": 5,
+    })
+    # Exceed the entire imported catalog to exercise the API's shortage path.
+    monkeypatch.setitem(t["plan"], "min_exercises", 100_000)
+    preview = client.get("/api/assessments/latest/eligibility", headers=headers)
+    assert preview.status_code == 200
+    assert preview.json()["in_scope"] is True
+    assert preview.json()["can_generate_plan"] is False
+    planned = client.post("/api/plans", headers=headers)
+    assert planned.status_code == 409
+    assert "Not enough approved exercises" in planned.json()["detail"]["message"]
+    assert client.get("/api/plans/current", headers=headers).status_code == 404
