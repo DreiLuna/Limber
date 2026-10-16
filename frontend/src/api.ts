@@ -51,6 +51,9 @@ export const api = {
   exercises: () => request<Exercise[]>("/exercises"),
   exercise: (id: string) => request<Exercise>(`/exercises/${encodeURIComponent(id)}`),
   progress: () => request<Progress>("/progress"),
+  reevaluate: () => request<{ plan_id: number; action: string; reasons: string[] }>(
+    "/reevaluations", { method: "POST" },
+  ),
   sessions: () => request<SessionLog[]>("/sessions"),
   logSession: (session: SessionCreate) =>
     request<SessionLog>("/sessions", { method: "POST", body: JSON.stringify(session) }),
