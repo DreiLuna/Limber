@@ -12,11 +12,11 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
+
 from google import genai
 
-from app.modules.ai.validation import AIPlanOutput
 from app.core.config import get_settings
-from app.modules.ai.validation import validate_plan
+from app.modules.ai.validation import AIPlanOutput, validate_plan
 from app.modules.recommendation.filtering import (
     ExerciseLike,
     PlannedExercise,
