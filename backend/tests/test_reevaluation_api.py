@@ -139,13 +139,31 @@ def test_logging_urgent_data_automatically_refers_even_after_continue(client, se
         assert len(list(db.scalars(select(PainReport).where(PainReport.session_id == logged.json()["id"])))) == 1
 
 
-def test_missing_next_level_catalog_requests_reassessment(client, seed, monkeypatch, t):
-    headers, _ = seed([(3, 3), (3, 3)])
+@pytest.mark.parametrize("automatic", [False, True], ids=["manual-review", "session-save"])
+def test_missing_next_level_catalog_requests_reassessment(client, seed, monkeypatch, t, automatic):
+    headers, plan_id = seed([(3, 3), (3, 3)])
     monkeypatch.setitem(t["plan"], "min_exercises", 100_000)
-    result = client.post("/api/reevaluations", headers=headers)
-    assert result.json()["action"] == "reassess"
-    assert result.json()["reasons"] == ["insufficient_eligible_exercises_for_increase"]
+    if automatic:
+        result = client.post("/api/sessions", headers=headers, json={
+            "completed": True, "pain_before": 3, "pain_after": 3, "perceived_difficulty": 3,
+        })
+        assert result.status_code == 201, result.text
+    else:
+        result = client.post("/api/reevaluations", headers=headers)
+        assert result.status_code == 200, result.text
+        assert result.json()["action"] == "reassess"
+        assert result.json()["reasons"] == ["insufficient_eligible_exercises_for_increase"]
+
+    with SessionLocal() as db:
+        decision = db.scalar(select(ReevaluationDecision).where(ReevaluationDecision.plan_id == plan_id))
+        assert decision.action == "reassess"
+        assert decision.reasons == ["insufficient_eligible_exercises_for_increase"]
+        plan = db.get(RecoveryPlan, plan_id)
+        assert plan.status == "reassessment_required"
+        assert plan.difficulty_level == 1
     assert client.get("/api/plans/current", headers=headers).status_code == 404
+    notices = client.get("/api/notifications", headers=headers).json()
+    assert any("complete a new check-in" in notice["message"] for notice in notices)
 
 
 def test_another_users_warning_does_not_affect_this_plan(client, seed):
