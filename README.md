@@ -28,12 +28,22 @@ per fresh database.
 
 ### Optional email reminders
 
-In-app reminders work without email settings. To send an email when a scheduled session is within 24
-hours, configure the SMTP values in the root `.env` file and set `EMAIL_REMINDERS_ENABLED=true`.
-For Gmail, use `smtp.gmail.com` on port `587` and a Google App Password (2-Step Verification must be
-enabled). Set `SMTP_USERNAME` and `SMTP_FROM` to the sender account, and `SMTP_PASSWORD` to the app
-password. Never commit `.env`. The backend checks for due reminders once per minute and skips sessions
-that have already been logged. Restart the backend after changing `.env`.
+I added optional email reminders so users can get a message before a scheduled recovery session. The
+app's in-app reminders still work when email is turned off. To try email reminders, add the SMTP
+settings below to the root `.env` file and restart the backend:
+
+```env
+EMAIL_REMINDERS_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-gmail-address
+SMTP_PASSWORD=your-google-app-password
+SMTP_FROM=your-gmail-address
+```
+
+For Gmail, I use an App Password with 2-Step Verification enabled. The backend checks once a minute
+for sessions coming up within 24 hours, and it does not email a reminder for a session that has already
+been logged. I keep `.env` out of Git so account credentials are not shared with the project.
 
 ## Local development without Docker
 
