@@ -6,15 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  (registers every table)
 from app.core.config import get_settings
-from app.modules.notifications.email_reminders import run_email_reminder_worker
 from app.modules.assessment.router import router as assessment_router
 from app.modules.catalog.router import router as catalog_router
+from app.modules.notifications.email_reminders import run_email_reminder_worker
 from app.modules.notifications.router import router as notifications_router
 from app.modules.plans.router import router as plans_router
 from app.modules.progress.router import router as progress_router
 from app.modules.reevaluation.router import router as reevaluation_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.users.router import router as users_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
