@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -22,15 +21,6 @@ class Settings(BaseSettings):
     # AI planning (M5). Leave empty to always use the rule-based fallback.
     llm_provider: str = ""
     llm_api_key: str = ""
-    # Optional Gmail/SMTP reminders. Keep disabled until credentials are configured.
-    email_reminders_enabled: bool = False
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    smtp_username: str = ""
-    smtp_password: SecretStr = SecretStr("")
-    smtp_from: str = ""
-    app_base_url: str = "http://localhost:5173"
-    email_reminder_poll_seconds: int = 60
 
 
 @lru_cache

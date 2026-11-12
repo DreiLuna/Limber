@@ -95,7 +95,6 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
         for d, w in build_schedule(start, freq, t["reevaluation"]["reassess_after_weeks"])
     ]
     db.add(plan)
-    db.flush()  # assign scheduled-session ids before linking reminder notifications
     # Persist reminders for display in the in-app Reminders tab.
     for scheduled in plan.schedule:
         message = (
@@ -106,7 +105,6 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
             user_id=user.id, kind="reminder",
             message=message,
             send_at=datetime.combine(scheduled.scheduled_date, time(9), tzinfo=UTC), read=False,
-            scheduled_session_id=scheduled.id,
         ))
     db.commit()
     db.refresh(plan)
