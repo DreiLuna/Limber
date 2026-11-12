@@ -1,8 +1,12 @@
+import asyncio
+from contextlib import asynccontextmanager, suppress
+
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  (registers every table)
 from app.core.config import get_settings
+from app.modules.notifications.email_reminders import run_email_reminder_worker
 from app.modules.assessment.router import router as assessment_router
 from app.modules.catalog.router import router as catalog_router
 from app.modules.notifications.router import router as notifications_router
@@ -12,7 +16,21 @@ from app.modules.reevaluation.router import router as reevaluation_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.users.router import router as users_router
 
-app = FastAPI(title="LIMBER API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    worker = None
+    if get_settings().email_reminders_enabled:
+        worker = asyncio.create_task(run_email_reminder_worker())
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker
+
+
+app = FastAPI(title="LIMBER API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
