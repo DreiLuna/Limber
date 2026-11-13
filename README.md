@@ -26,6 +26,25 @@ docker compose exec backend python -m scripts.import_catalog --load-only
 The backend container runs `alembic upgrade head` on start. The catalog load step only needs to run once
 per fresh database.
 
+### Optional email reminders
+
+I added optional email reminders so users can get a message before a scheduled recovery session. The
+app's in-app reminders still work when email is turned off. To try email reminders, add the SMTP
+settings below to the root `.env` file and restart the backend:
+
+```env
+EMAIL_REMINDERS_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-gmail-address
+SMTP_PASSWORD=your-google-app-password
+SMTP_FROM=your-gmail-address
+```
+
+For Gmail, I use an App Password with 2-Step Verification enabled. The backend checks once a minute
+for sessions coming up within 24 hours, and it does not email a reminder for a session that has already
+been logged. I keep `.env` out of Git so account credentials are not shared with the project.
+
 ## Local development without Docker
 
 Requires Python 3.12+ and Node 20+.
