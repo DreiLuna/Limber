@@ -20,8 +20,11 @@ class Settings(BaseSettings):
     thresholds_path: Path = BACKEND_DIR / "config" / "thresholds.yaml"
     cors_origins: list[str] = ["http://localhost:5173"]
     # AI planning (M5). Leave empty to always use the rule-based fallback.
+    # Set LLM_PROVIDER=gemini and LLM_API_KEY in .env. Never put a real key here.
     llm_provider: str = ""
     llm_api_key: str = ""
+    llm_model: str = "gemini-3.5-flash"
+    llm_timeout_s: int = 60
     # Optional Gmail/SMTP reminders. Keep disabled until credentials are configured.
     email_reminders_enabled: bool = False
     smtp_host: str = "smtp.gmail.com"
