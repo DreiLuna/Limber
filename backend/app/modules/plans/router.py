@@ -51,7 +51,16 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     eligible = eligibility.exercises
     client = get_planner_client()
     try:
-        result = plan_with_fallback(eligible, assessment.activity_difficulties, client)
+        result = plan_with_fallback(
+            eligible, assessment.activity_difficulties, client,
+            context={
+                "body_region": assessment.body_region,
+                "pain_level": assessment.pain_level,
+                "limitations": assessment.limitations,
+                "activity_difficulties": assessment.activity_difficulties,
+                "starting_difficulty": assessment.starting_difficulty,
+            },
+        )
     except InsufficientExercisesError as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
