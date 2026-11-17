@@ -44,6 +44,13 @@ session logs, and requires a new assessment before generating another plan.
 Decision and notification writes commit with the session/plan change. The service
 does not invoke AI or change the prototype threshold values.
 
+An out-of-scope check-in through `POST /api/assessments` also cancels the user's
+future unread exercise reminders in the same transaction as saving the referral
+and retiring active plans. This includes reminders without a scheduled-session
+link. Past reminders, read reminders, other notification kinds, schedules and
+session logs remain available; other users' reminders are unaffected. An
+in-scope check-in leaves the current plan and reminders unchanged.
+
 ## Time and repeat behavior
 
 A full week is seven days from the plan's start date, using the server's UTC date
@@ -73,7 +80,15 @@ session-triggered changes, user isolation, repeated calls, urgency overriding a
 previous decision, safe next-level exercise doses, catalog shortages, frequency
 floor, difficulty ceiling, extra-session adherence, historical schedule IDs,
 updated reminders, and the fresh-intake requirement. Existing pure-rule tests
-continue to cover threshold priority. Run:
+continue to cover threshold priority.
+
+`tests/test_assessment_referral.py` covers reminder cancellation for all three
+intake referral triggers, notification and session-history preservation, schedule
+preservation, user isolation, and unchanged reminders after an in-scope check-in.
+The reminder regression cases failed against the previous intake implementation
+before the fix was applied.
+
+Run:
 
 ```bash
 cd backend
