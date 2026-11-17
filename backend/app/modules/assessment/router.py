@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, utcnow
 from app.core.deps import get_current_user
 from app.modules.assessment.eligibility import EligibilityService
 from app.modules.assessment.models import Assessment
 from app.modules.assessment.schemas import AssessmentCreate, AssessmentOut, EligibilityOut
 from app.modules.assessment.scope import check_scope
 from app.modules.catalog.models import Exercise
+from app.modules.notifications.models import Notification
 from app.modules.plans.models import RecoveryPlan
 from app.modules.users.models import User
 
@@ -39,6 +40,11 @@ def create_assessment(
             RecoveryPlan.user_id == user.id, RecoveryPlan.status == "active"
         )):
             plan.status = "referred"
+        # Match reevaluation: a stopped plan must not keep prompting exercise.
+        db.execute(delete(Notification).where(
+            Notification.user_id == user.id, Notification.kind == "reminder",
+            Notification.send_at >= utcnow(), Notification.read.is_(False),
+        ))
     db.commit()
     return assessment
 
