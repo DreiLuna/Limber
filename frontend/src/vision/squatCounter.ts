@@ -66,6 +66,9 @@ export interface CounterResult {
 }
 
 export class SquatCounter {
+  private limits: { standing: number; bending: number; bent: number };
+
+  constructor(limits = { standing: 160, bending: 145, bent: 110 }) { this.limits = limits; }
   private reps = 0;
   private partials = 0;
   private phase: CounterPhase = "waiting";
@@ -107,8 +110,8 @@ export class SquatCounter {
     }
     if (gap || (this.side !== null && this.side !== sample.side)) this.interrupt();
     this.side = sample.side;
-    const band = sample.angle >= LIMITS.standing ? "standing" : sample.angle <= LIMITS.bent ? "bent"
-      : sample.angle <= LIMITS.bending ? "lowering" : "between";
+    const band = sample.angle >= this.limits.standing ? "standing" : sample.angle <= this.limits.bent ? "bent"
+      : sample.angle <= this.limits.bending ? "lowering" : "between";
     if (this.band !== band) { this.band = band; this.bandSince = now; }
     const stable = now - this.bandSince >= LIMITS.holdMs;
     if (this.startedAt && now - this.startedAt > LIMITS.maximumCycleMs) {
