@@ -171,7 +171,7 @@ export default function CameraPage() {
         <p className="text-2xl font-semibold" data-testid="partial-count">{result.partials}</p>
         <p className="mt-5 text-sm text-slate-500">Estimated {MOVEMENTS[movement].joint.toLowerCase()} angle</p>
         <p className="text-2xl font-semibold">{status === "running" && result.angle !== null ? `${Math.round(result.angle)}°` : "—"}</p>
-        <p className="mt-3 text-sm">Time in bent position: {held.toFixed(1)}s</p>
+        <p className="mt-3 text-sm">Time in end position: {held.toFixed(1)}s</p>
         <p role="status" className="mt-4 text-sm text-slate-700">{status === "off" ? "Camera is off." : status === "loading" ? "Allow camera access when your browser asks. The model may take a moment to download." : result.message}</p>
       </section>
     </div>
