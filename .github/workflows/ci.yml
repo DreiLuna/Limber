@@ -59,7 +59,7 @@ jobs:
           limber-demo-ci
       - name: Verify API and client routes
         run: |
-          curl --fail --retry 30 --retry-connrefused --retry-delay 2 http://localhost:8000/api/health
+          curl --fail --retry 30 --retry-all-errors --retry-delay 2 http://localhost:8000/api/health
           curl --fail http://localhost:8000/camera | grep 'id="root"'
           curl --fail http://localhost:8000/progress | grep 'id="root"'
       - name: Container logs
