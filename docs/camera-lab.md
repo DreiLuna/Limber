@@ -1,56 +1,85 @@
-# Camera lab: squat-counting prototype
+# Measured recovery feedback
 
-The signed-in navigation includes **Camera lab** at `/camera`. Select **Start
-camera**, allow browser camera permission, and use a steady side view with one
-person's shoulder, hip, knee and ankle in frame. Start standing. Stop if movement
-is painful; this feature does not determine whether squats are appropriate for a
-user, assess technique, diagnose a condition or prescribe an exercise.
+Camera lab supports three versioned protocols:
 
-## Implementation
+| Exercise ID | Joint | Cycle | View |
+| --- | --- | --- | --- |
+| `Bodyweight_Squat` | Knee | Standing → bend → standing | Shoulder, hip, knee, ankle; side view |
+| `Seated_Knee_Extension` | Knee | Foot down → extend → foot down | Same chain, seated side view |
+| `Wall_Press_Up` | Elbow | Arms extended → bend → extended | Hip, shoulder, elbow, wrist; side view |
 
-`@mediapipe/tasks-vision` 1.2.3 runs Pose Landmarker Lite in the browser using the
-CPU delegate. The SDK is loaded only on Start. The runtime downloads from
-jsDelivr at that exact version; the model comes from Google's versioned
-`pose_landmarker_lite/float16/1` asset. The first start needs internet access to
-these hosts. No API key or backend inference service is required.
+Start the app, sign in and open Camera lab. Choose the exercise and visible side,
+then Start. Stop before adding a result. Add each exercise's result before
+switching or restarting; added results remain available while collecting other
+exercises. Save with the ordinary session pain and warning-symptom check.
+Exercises outside the active plan are practice-only. The whole-session checkbox
+starts unchecked: a camera set alone does not prove every planned exercise was
+done. Choose a due scheduled session for scheduled completion; extra practice
+never substitutes for it. A duplicate scheduled log returns an error and keeps
+the unsaved results available.
 
-The preview starts before model loading finishes. Camera errors distinguish
-denied permission, missing devices and busy devices. Use `localhost` or HTTPS;
-plain HTTP at a LAN IP normally cannot access the camera. On a Mac, check the
-browser's site camera permission and macOS camera privacy settings if access is
-denied. Stop, navigation, a hidden tab, disconnection and model/inference errors
-release the video tracks. A startup generation token prevents a late async model
-or camera result from reviving a stopped session. The camera is never started on
-page load.
+The save transaction validates the active plan, exercise membership, summary
+bounds and unique exercise IDs, snapshots the prescribed sets × reps target,
+saves the session and measurements together, and runs reevaluation. Referral
+rules still win over all camera evidence. Invalid input leaves no partial log.
+Only authenticated users can read their own results at `/api/measurements`.
+Saved results remain visible on Progress after a plan is retired.
 
-At most about 12.5 decoded frames per second are processed synchronously; no
-inference requests are queued. The same video frame is not processed twice.
-The overlay shows the tracked shoulder–hip–knee–ankle chain. Each point must be
-inside the image margins and have visibility of at least 0.65; a supplied
-landmark presence score must also meet 0.65. Pose detection, presence and
-tracking thresholds are each 0.65. Two detected people, cropped/low-confidence
-limbs, tiny bodies or a horizontal torso pause counting. The visible side is
-retained while valid; switching sides discards the incomplete cycle.
+## What is measured
 
-The knee angle is measured from hip–knee–ankle using pixel coordinates so the
-image aspect ratio does not distort the calculation. Prototype thresholds are
-standing at 160 degrees or above, movement at 145 or below, and bent at 110 or
-below. A band must persist for 200 ms. These are engineering constants for this
-demo, not clinically validated targets, and the UI does not tell a person to
-reach them. A full cycle requires stable standing, a bent phase, then stable
-standing, lasting at least 800 ms. A return from partial bending or a cycle that
-is too fast is displayed separately. Attempts expire after 15 seconds. Missing
-tracking or a gap over 400 ms discards the attempt and requires standing again.
+MediaPipe Pose Landmarker Lite 1.2.3 runs client-side using the CPU delegate,
+loaded only on Start. Runtime assets come from versioned jsDelivr URLs and the
+model from Google's versioned Lite asset. No API key is needed. Camera access
+requires localhost or HTTPS. The preview starts before the model loads. Stop,
+navigation, hidden tabs and camera/model errors release resources, including
+late asynchronous initialization. Recording stops at 30 minutes.
 
-Frames, landmarks and counts remain in memory. This feature does not record,
-upload or persist them, and does not modify plans, referrals, adherence or
-session logs. Model/runtime download requests disclose ordinary network request
-metadata to their hosts, not camera frames. Restarting the camera resets counts.
+Inference is throttled to roughly 12.5 decoded frames per second. Exactly one
+person and all required points on the selected side must be visible with
+confidence at least 0.65. Gaps over 400ms discard an incomplete cycle. A band
+must persist for 200ms; full cycles take at least 800ms and expire after 15s.
+Each protocol supplies its own joint chain and angle bands. Seated extension
+reverses the counting direction; the displayed angle remains the original one.
+Repetitions, partial attempts, time in the bent/extended band, observed minimum
+and maximum 2D angles, duration and time-based tracking coverage are summarized.
+Hold time excludes lost tracking and gaps. It is an observation, not a
+prescribed hold duration or proof of correct posture. The angle span is not a
+clinical range-of-motion measurement.
+
+Video, photos and landmark coordinates never leave the browser. Saving sends
+numeric summaries and the user's pain responses to the authenticated API; the
+UI explains this before Save. Restart and Reset clear the current recording.
+Nothing is uploaded automatically. Model requests expose ordinary network
+request metadata to the asset hosts.
+
+## How measurements affect a plan
+
+The existing priority order remains referral, reduce, increase, reassess,
+continue. An increase now also requires the last two full plan weeks to have:
+low pain (maximum 3/10, including extra logs), at least 80% scheduled completion
+with all supported camera exercises measured, prescribed repetition targets met,
+at least 80% tracking, no more than 25% partial attempts, at least five seconds
+per recording and at least ten degrees of observed angle span. Per-exercise
+median span may not decline more than ten degrees, and the same side must be
+used. Missing measurements block an increase but do not block referral,
+reduction or reassessment. Plans with no supported camera exercise cannot
+increase automatically. These policies are centralized in `thresholds.yaml`.
+
+Weekly decisions remain idempotent: adding evidence after a decision in the
+same plan week does not apply another adjustment. New urgent symptoms still
+trigger referral immediately. The camera is additional evidence, never proof
+that an exercise is medically suitable. Charts and the data table separate
+exercise and side and show saved counts against the server-snapshotted target,
+hold time, angle span and tracking coverage.
 
 ## Verification
 
 ```bash
-cd frontend
+cd backend
+alembic upgrade head
+python scripts/import_catalog.py --load-only
+pytest
+cd ../frontend
 npm ci
 npm test
 npm run build
@@ -58,21 +87,14 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The Node tests cover complete and partial cycles, starting bent, jitter,
-too-fast attempts, gaps, tracking loss, side changes, timeout, reset, invalid
-measurements, multiple people, cropped limbs, confidence and aspect ratio.
-Playwright tests use synthetic camera streams and mocked pose outputs to cover
-opt-in startup, permission-denied recovery, model-load failure, navigation
-cleanup, cancellation during loading and displayed counts. They make no real
-camera or inference-quality claims. CI runs both frontend test suites.
+Logic tests cover all three protocols, holds, confidence, missing tracking,
+partial cycles, angle geometry and timing. API tests cover persistence, user
+isolation, invalid/duplicate/unplanned input, referral priority and measured
+progression gates. Browser tests cover camera lifecycle and synthetic
+three-exercise counts plus save → Progress rendering. Synthetic inputs test
+software behavior, not actual-person detection accuracy. For a repeatable live
+demo, compare observed counts and overlay alignment for each exercise, record
+partial attempts and tracking loss, then reload Progress to check persistence.
 
-The development workspace could run the logic tests and build, but its process
-sandbox prevented Chromium from launching. Browser-test results must therefore
-come from CI. A real MacBook camera and actual-person trial remain required:
-verify preview and overlay alignment, several complete/partial cycles,
-stepping out of view, two people entering, Stop, and leaving the page. Record
-observed counts and false positives/negatives; do not mark this trial complete
-until someone performs it. Clothing, occlusion, perspective and model errors
-can affect counts, and none of these tests establish clinical effectiveness.
-
-Reference: [Google Pose Landmarker web guide](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js).
+See [guidance review](guideline-review.md) for sources and changes, and
+[hosting](hosting.md) for the full-stack deployment setup.
