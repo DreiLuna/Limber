@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: limber-student-demo
+    runtime: docker
+    plan: free
+    region: ohio
+    dockerfilePath: ./Dockerfile
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: limber-demo-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: EMAIL_REMINDERS_ENABLED
+        value: "false"
+      - key: LLM_PROVIDER
+        value: ""
+databases:
+  - name: limber-demo-db
+    plan: free
+    region: ohio
+    databaseName: limber
+    user: limber
+    ipAllowList: []
