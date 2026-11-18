@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
-import { SquatCounter, readPose } from "../vision/squatCounter";
+import { MovementTracker, MOVEMENTS, readMovementPose } from "../vision/movementTracker";
+import type { MovementId, Side } from "../vision/movementTracker";
+import MeasurementSave from "../components/MeasurementSave";
 
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm";
 const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
@@ -16,7 +18,7 @@ function cameraError(error: unknown): string {
 export default function CameraPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const counter = useRef(new SquatCounter());
+  const counter = useRef(new MovementTracker());
   const stream = useRef<MediaStream | null>(null);
   const detector = useRef<PoseLandmarker | null>(null);
   const frame = useRef(0);
@@ -24,6 +26,14 @@ export default function CameraPage() {
   const [status, setStatus] = useState<"off" | "loading" | "running">("off");
   const [result, setResult] = useState(() => counter.current.reset());
   const [error, setError] = useState<string | null>(null);
+
+  const [movement, setMovement] = useState<MovementId>("Bodyweight_Squat");
+  const [side, setSide] = useState<Side>("left");
+  const [held, setHeld] = useState(0);
+  function selectMovement(id: MovementId, selectedSide: Side) {
+    counter.current = new MovementTracker(id, selectedSide);
+    setMovement(id); setSide(selectedSide); setResult(counter.current.reset()); setHeld(0);
+  }
 
   function release() {
     generation.current++;
@@ -82,7 +92,7 @@ export default function CameraPage() {
       detector.current = model;
       let lastVideoTime = -1;
       let lastFrameTime = 0;
-      let trackedSide: "left" | "right" | undefined;
+      const began = performance.now();
       setResult(counter.current.reset());
       setStatus("running");
       media.getVideoTracks().forEach((track) => track.addEventListener("ended", () => {
@@ -92,13 +102,14 @@ export default function CameraPage() {
       function tick(now: number) {
         if (generation.current !== run) return;
         try {
+          if (now - began >= 1_800_000) { stop(); setError("This recording reached the 30-minute limit. Save your result or start another set."); return; }
           if (video.readyState >= 2 && video.currentTime !== lastVideoTime && now - lastFrameTime >= 80) {
             lastVideoTime = video.currentTime;
             lastFrameTime = now;
             const poses = model.detectForVideo(video, now);
-            const sample = readPose(poses.landmarks, video.videoWidth, video.videoHeight, trackedSide);
-            trackedSide = sample?.side;
+            const sample = readMovementPose(movement, poses.landmarks, video.videoWidth, video.videoHeight, side);
             setResult(counter.current.update(sample, now));
+            setHeld(counter.current.summary()?.hold_seconds ?? 0);
             const canvas = canvasRef.current;
             if (canvas) {
               canvas.width = video.videoWidth;
@@ -140,7 +151,12 @@ export default function CameraPage() {
   return <div className="mx-auto max-w-4xl">
     <p className="text-sm font-semibold uppercase tracking-wide text-teal-700">Camera lab · prototype</p>
     <h1 className="mt-2 text-3xl font-semibold">See your movement, count each cycle</h1>
-    <p className="mt-3 max-w-2xl text-slate-600">An optional squat-counting demo. It estimates movement from a side view; it does not assess exercise safety or technique. Only try movements you are already cleared to do. Stop if you feel pain.</p>
+    <p className="mt-3 max-w-2xl text-slate-600">Camera feedback for three exercises. It estimates movement from a side view; it does not assess exercise safety or technique. Only try movements you are already cleared to do. Stop if you feel pain.</p>
+    <div className="mt-5 flex flex-wrap gap-4">
+      <label>Exercise <select aria-label="Measured exercise" disabled={status !== "off"} value={movement} onChange={e => selectMovement(e.target.value as MovementId, side)} className="ml-2 rounded border p-2">{Object.entries(MOVEMENTS).map(([id, info]) => <option key={id} value={id}>{info.name}</option>)}</select></label>
+      <label>Visible side <select aria-label="Visible side" disabled={status !== "off"} value={side} onChange={e => selectMovement(movement, e.target.value as Side)} className="ml-2 rounded border p-2"><option value="left">Left</option><option value="right">Right</option></select></label>
+    </div>
+    <p className="mt-3 text-sm">{MOVEMENTS[movement].view}</p>
     <div className="mt-6 grid gap-5 md:grid-cols-[minmax(0,1fr)_15rem]">
       <section aria-label="Camera preview" className="relative overflow-hidden rounded-2xl bg-slate-950 ring-1 ring-slate-200">
         <video ref={videoRef} autoPlay muted playsInline aria-label="Live camera" className="aspect-[4/3] w-full -scale-x-100 object-contain" />
@@ -153,8 +169,9 @@ export default function CameraPage() {
         <p className="mt-1 text-6xl font-semibold text-teal-800" data-testid="rep-count">{result.reps}</p>
         <p className="mt-5 text-sm text-slate-500">Partial / too-fast attempts</p>
         <p className="text-2xl font-semibold" data-testid="partial-count">{result.partials}</p>
-        <p className="mt-5 text-sm text-slate-500">Estimated knee angle</p>
+        <p className="mt-5 text-sm text-slate-500">Estimated {MOVEMENTS[movement].joint.toLowerCase()} angle</p>
         <p className="text-2xl font-semibold">{status === "running" && result.angle !== null ? `${Math.round(result.angle)}°` : "—"}</p>
+        <p className="mt-3 text-sm">Time in bent position: {held.toFixed(1)}s</p>
         <p role="status" className="mt-4 text-sm text-slate-700">{status === "off" ? "Camera is off." : status === "loading" ? "Allow camera access when your browser asks. The model may take a moment to download." : result.message}</p>
       </section>
     </div>
@@ -162,11 +179,12 @@ export default function CameraPage() {
     <div className="mt-5 flex flex-wrap gap-3">
       <button onClick={() => void start()} disabled={status !== "off"} className="rounded-lg bg-teal-700 px-5 py-2.5 font-medium text-white hover:bg-teal-800 disabled:opacity-40">Start camera</button>
       <button onClick={stop} disabled={status === "off"} className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 font-medium hover:bg-slate-50 disabled:opacity-40">Stop camera</button>
-      <button onClick={() => setResult(counter.current.reset())} disabled={status === "loading"} className="rounded-lg px-5 py-2.5 text-slate-600 hover:bg-slate-100 disabled:opacity-40">Reset counts</button>
+      <button onClick={() => { setResult(counter.current.reset()); setHeld(0); }} disabled={status === "loading"} className="rounded-lg px-5 py-2.5 text-slate-600 hover:bg-slate-100 disabled:opacity-40">Reset counts</button>
     </div>
+    <MeasurementSave summary={() => counter.current.summary()} stopped={status === "off"} />
     <div className="mt-6 grid gap-5 rounded-2xl bg-white p-5 text-sm text-slate-600 ring-1 ring-slate-200 sm:grid-cols-2">
-      <div><h2 className="font-semibold text-slate-900">Set up your view</h2><p className="mt-2">Place the camera steadily at about hip height. Stand side-on with your shoulder, hip, knee and ankle visible. Use good lighting and keep only one person in frame. Start standing; a partial movement or interrupted view will not count as a full cycle.</p></div>
-      <div><h2 className="font-semibold text-slate-900">Your camera stays local</h2><p className="mt-2">Frames are processed in this browser. No video, photos or pose data are uploaded or stored by this feature. Starting downloads a pose model from Google and runtime files from jsDelivr. Counts reset on restart and are not saved to your recovery plan.</p></div>
+      <div><h2 className="font-semibold text-slate-900">Set up your view</h2><p className="mt-2">Place the camera steadily at about hip height. Use the setup shown for the selected exercise. Use good lighting and keep only one person in frame. Start standing; a partial movement or interrupted view will not count as a full cycle.</p></div>
+      <div><h2 className="font-semibold text-slate-900">Your camera stays local</h2><p className="mt-2">Frames are processed in this browser. No video, photos or landmark coordinates are uploaded or stored. Starting downloads a pose model from Google and runtime files from jsDelivr. Counts reset on restart. Only numeric summaries are saved when you choose Save.</p></div>
     </div>
   </div>;
 }
