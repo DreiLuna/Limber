@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db, utcnow
 from app.core.deps import get_current_user
+from app.modules.measurements.models import MovementMeasurement
 from app.modules.plans.models import RecoveryPlan, ScheduledSession
 from app.modules.reevaluation.service import reevaluate_plan
 from app.modules.sessions.models import ExerciseSession, PainReport
@@ -41,6 +42,11 @@ def log_session(
         if existing:
             raise HTTPException(status.HTTP_409_CONFLICT, "This scheduled session was already logged")
 
+    items = {item.exercise_id: item for item in plan.items}
+    ids = [item.exercise_id for item in body.measurements]
+    if len(ids) != len(set(ids)) or any(item not in items for item in ids):
+        raise HTTPException(422, "Each measured exercise must be unique and in your active plan")
+
     session = ExerciseSession(
         user_id=user.id, plan_id=plan.id, scheduled_session_id=scheduled.id if scheduled else None,
         completed=body.completed, pain_before=body.pain_before, pain_after=body.pain_after,
@@ -49,6 +55,12 @@ def log_session(
     )
     db.add(session)
     db.flush()
+    for measurement in body.measurements:
+        item = items[measurement.exercise_id]
+        db.add(MovementMeasurement(
+            user_id=user.id, session_id=session.id, target_reps=item.sets * item.reps,
+            **measurement.model_dump(),
+        ))
     db.add(PainReport(
         user_id=user.id, session_id=session.id, pain_level=body.pain_after,
         red_flags=[flag.value for flag in body.new_red_flags],

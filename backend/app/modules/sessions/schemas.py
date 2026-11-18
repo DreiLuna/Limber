@@ -3,9 +3,11 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.vocab import RedFlag
+from app.modules.measurements.schemas import MeasurementCreate
 
 
 class SessionCreate(BaseModel):
+    measurements: list[MeasurementCreate] = Field(default_factory=list, max_length=3)
     scheduled_session_id: int | None = None
     completed: bool
     pain_before: int = Field(ge=0, le=10)
