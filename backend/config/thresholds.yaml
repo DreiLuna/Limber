@@ -47,3 +47,14 @@ reevaluation:
 ai:
   timeout_seconds: 5
   max_difficulty_change: 1
+
+# Camera evidence is an additional conservative gate, not a treatment prescription.
+measured_progress:
+  weeks: 2
+  pain_at_most: 3
+  tracking_at_least: 0.8
+  range_at_least_degrees: 10
+  partials_at_most_ratio: 0.25
+  duration_at_least_seconds: 5
+  completion_at_least: 0.8
+  range_drop_at_most_degrees: 10
