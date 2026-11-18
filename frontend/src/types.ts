@@ -66,6 +66,7 @@ export interface SessionLog {
 }
 
 export interface SessionCreate {
+  measurements?: import("./vision/movementTracker").MovementSummary[];
   scheduled_session_id: number | null;
   completed: boolean;
   pain_before: number;
@@ -121,4 +122,12 @@ export function referralText(reason: string): string {
   if (kind === "pain_too_high") return `Your pain level (${value}/10) is higher than a self-guided plan should handle.`;
   if (kind === "red_flag") return `You reported: ${RED_FLAG_COPY[value]?.title.toLowerCase() ?? label(value).toLowerCase()}.`;
   return label(reason);
+}
+
+export interface SavedMeasurement {
+  id: number; session_id: number; created_at: string;
+  exercise_id: string; protocol: string; side: string;
+  reps: number; partials: number; target_reps: number;
+  hold_seconds: number; min_angle: number; max_angle: number;
+  tracking_ratio: number; duration_seconds: number;
 }
