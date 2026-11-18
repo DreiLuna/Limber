@@ -487,9 +487,9 @@
     "category": "strength",
     "equipment": "body only",
     "instructions": [
-      "Stand with your feet shoulder width apart. You can place your hands behind your head. This will be your starting position.",
-      "Begin the movement by flexing your knees and hips, sitting back with your hips.",
-      "Continue down to full depth if you are able,and quickly reverse the motion until you return to the starting position. As you squat, keep your head and chest up and push your knees out."
+      "Use a stable support if needed and keep both feet on the floor.",
+      "Bend your knees slowly only as far as comfortable, then return to standing in a controlled way.",
+      "Stop if the movement causes pain or feels unsteady."
     ],
     "sets_min": 1,
     "sets_max": 3,
@@ -3669,9 +3669,9 @@
     "category": "stretching",
     "equipment": null,
     "instructions": [
-      "Stand with your feet shoulder width apart. This will be your starting position.",
-      "Begin the movement by flexing your knees and hips, sitting back with your hips.",
-      "Continue until you have squatted a portion of the way down, but are above parallel, and quickly reverse the motion until you return to the starting position. Repeat for 5-10 repetitions."
+      "Use a stable support if needed and keep both feet on the floor.",
+      "Bend your knees slowly only as far as comfortable, then return to standing in a controlled way.",
+      "Stop if the movement causes pain or feels unsteady."
     ],
     "sets_min": 1,
     "sets_max": 3,
@@ -4474,6 +4474,57 @@
       "bending",
       "running",
       "walking"
+    ]
+  },
+  {
+    "id": "Seated_Knee_Extension",
+    "name": "Seated Knee Extension",
+    "body_regions": [
+      "knee"
+    ],
+    "difficulty": 1,
+    "category": "strength",
+    "equipment": "stable chair",
+    "instructions": [
+      "Sit upright on a stable chair with both feet on the floor.",
+      "Slowly straighten one knee within a comfortable range, pause, then lower the foot.",
+      "Repeat on the same side for this measured set. Stop if painful."
+    ],
+    "sets_min": 1,
+    "sets_max": 3,
+    "reps_min": 5,
+    "reps_max": 10,
+    "media": [],
+    "contraindications": [],
+    "targets_activities": [
+      "walking",
+      "climbing_stairs"
+    ]
+  },
+  {
+    "id": "Wall_Press_Up",
+    "name": "Wall Press-up",
+    "body_regions": [
+      "shoulder"
+    ],
+    "difficulty": 1,
+    "category": "strength",
+    "equipment": "wall",
+    "instructions": [
+      "Stand facing a wall with hands supported at chest height.",
+      "Keep your body steady while slowly bending the elbows toward the wall.",
+      "Return slowly within a comfortable range. Stop if painful."
+    ],
+    "sets_min": 1,
+    "sets_max": 3,
+    "reps_min": 5,
+    "reps_max": 10,
+    "media": [],
+    "contraindications": [
+      "poor_balance"
+    ],
+    "targets_activities": [
+      "lifting"
     ]
   }
 ]

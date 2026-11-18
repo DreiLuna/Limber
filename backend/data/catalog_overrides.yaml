@@ -1,12 +1,56 @@
-# Manual curation applied on top of the automatic tagging in scripts/import_catalog.py.
-# Re-run the script after editing. Use free-exercise-db ids.
-
-# Exercises the team decides are not safe or not relevant for LIMBER's scope.
+# Published-guidance curation, 2026-11-18. See docs/guideline-review.md.
 exclude: []
-#  - Some_Exercise_Id
-
-# Field overrides for specific exercises (any catalog field).
-patch: {}
-#  Calf_Raise_On_A_Dumbbell:
-#    difficulty: 2
-#    contraindications: [poor_balance]
+patch:
+  Bodyweight_Squat:
+    instructions:
+    - Use a stable support if needed and keep both feet on the floor.
+    - Bend your knees slowly only as far as comfortable, then return to standing in
+      a controlled way.
+    - Stop if the movement causes pain or feels unsteady.
+  Sit_Squats:
+    instructions:
+    - Use a stable support if needed and keep both feet on the floor.
+    - Bend your knees slowly only as far as comfortable, then return to standing in
+      a controlled way.
+    - Stop if the movement causes pain or feels unsteady.
+add:
+- id: Seated_Knee_Extension
+  name: Seated Knee Extension
+  body_regions:
+  - knee
+  difficulty: 1
+  category: strength
+  equipment: stable chair
+  instructions:
+  - Sit upright on a stable chair with both feet on the floor.
+  - Slowly straighten one knee within a comfortable range, pause, then lower the foot.
+  - Repeat on the same side for this measured set. Stop if painful.
+  sets_min: 1
+  sets_max: 3
+  reps_min: 5
+  reps_max: 10
+  media: []
+  contraindications: []
+  targets_activities:
+  - walking
+  - climbing_stairs
+- id: Wall_Press_Up
+  name: Wall Press-up
+  body_regions:
+  - shoulder
+  difficulty: 1
+  category: strength
+  equipment: wall
+  instructions:
+  - Stand facing a wall with hands supported at chest height.
+  - Keep your body steady while slowly bending the elbows toward the wall.
+  - Return slowly within a comfortable range. Stop if painful.
+  sets_min: 1
+  sets_max: 3
+  reps_min: 5
+  reps_max: 10
+  media: []
+  contraindications:
+  - poor_balance
+  targets_activities:
+  - lifting
