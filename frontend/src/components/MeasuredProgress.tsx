@@ -15,7 +15,7 @@ export default function MeasuredProgress() {
   const minTime = Math.min(...times), maxTime = Math.max(...times), maxValue = Math.max(1, ...values);
   const x = (i: number) => times.length === 1 ? 300 : 55 + (times[i] - minTime) / Math.max(1, maxTime - minTime) * 490;
   const y = (i: number) => 170 - values[i] / maxValue * 135;
-  const name = metric === "span" ? "Camera angle span (degrees)" : metric === "reps" ? "Completed cycles" : "Time in bent position (seconds)";
+  const name = metric === "span" ? "Camera angle span (degrees)" : metric === "reps" ? "Completed cycles" : "Time in end position (seconds)";
   return <section className="rounded-xl bg-white p-5 shadow-sm" aria-labelledby="measured-title">
     <h2 id="measured-title" className="text-lg font-semibold">Measured movement over time</h2>
     <p className="mt-2 text-sm text-slate-600">Saved camera estimates, separated by exercise and side. Angle span is the observed 2D joint-angle range, not a clinical flexibility measurement. Low tracking quality can affect comparisons.</p>
