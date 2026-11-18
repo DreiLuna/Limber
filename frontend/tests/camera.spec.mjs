@@ -114,3 +114,59 @@ test("rendered counter counts complete cycles and pauses on tracking loss", asyn
   await page.getByRole("button", { name: "Reset counts", exact: true }).click();
   await expect(page.getByTestId("rep-count")).toHaveText("0");
 });
+
+async function holdMovement(page, id, angle) {
+  await page.evaluate(({id,angle}) => {
+    const p = Array.from({length:33},()=>({x:.5,y:.5,visibility:.9,presence:.9}));
+    const chain = id === "Wall_Press_Up" ? [23,11,13,15] : [11,23,25,27];
+    const [anchor,a,b,c]=chain, r=angle*Math.PI/180;
+    p[anchor]={...p[anchor], y:id === "Wall_Press_Up" ? .7 : .1};
+    p[a]={...p[a],y:.3}; p[b]={...p[b],y:.5};
+    p[c]={...p[c],x:.5+Math.sin(r)*.15,y:.5-Math.cos(r)*.2};
+    window.cameraTest.poses=[p];
+  },{id,angle});
+  await page.waitForTimeout(500);
+}
+
+for (const id of ["Seated_Knee_Extension","Wall_Press_Up"]) {
+  test(`${id} uses its own angles and counts a cycle`,async({page})=>{
+    await page.getByLabel("Measured exercise",{exact:true}).selectOption(id);
+    await page.getByRole("button",{name:"Start camera",exact:true}).click();
+    await expect(page.getByText("Camera on · processed locally",{exact:true})).toBeVisible();
+    const angles=id === "Seated_Knee_Extension" ? [90,135,170,90] : [170,135,100,170];
+    for (const angle of angles) await holdMovement(page,id,angle);
+    await expect(page.getByTestId("rep-count")).toHaveText("1");
+  });
+}
+
+test("numeric result saves with pain check and reloads in measured progress",async({page})=>{
+  const plan={id:1,status:"active",difficulty_level:2,frequency_per_week:3,source:"fallback",start_date:"2026-11-01",items:[{exercise_id:"Bodyweight_Squat",position:0,sets:1,reps:8}],schedule:[]};
+  let saved=[];
+  await page.route("**/api/plans/current",route=>route.fulfill({json:plan}));
+  await page.route("**/api/measurements",route=>route.fulfill({json:saved}));
+  await page.route("**/api/sessions",async route=>{
+    if(route.request().method()==="POST") {
+      const body=route.request().postDataJSON();
+      expect(body.pain_after).toBe(2);
+      expect(body.completed).toBe(false);
+      expect(Object.keys(body.measurements[0]).sort()).toEqual(["exercise_id","protocol","side","reps","partials","hold_seconds","min_angle","max_angle","tracking_ratio","duration_seconds"].sort());
+      saved=body.measurements.map((m,i)=>({...m,id:i+1,session_id:1,target_reps:8,created_at:"2026-11-18T12:00:00Z"}));
+      await route.fulfill({status:201,json:{id:1}});
+    } else await route.fulfill({json:[]});
+  });
+  await page.route("**/api/notifications",route=>route.fulfill({json:[]}));
+  await page.route("**/api/progress",route=>route.fulfill({json:{plan_id:1,weeks:[],explanation:""}}));
+  await page.reload();
+  await page.getByRole("button",{name:"Start camera",exact:true}).click();
+  await expect(page.getByText("Camera on · processed locally",{exact:true})).toBeVisible();
+  for (const angle of [170,135,100,170]) await holdMovement(page,"Bodyweight_Squat",angle);
+  await page.getByRole("button",{name:"Stop camera",exact:true}).click();
+  await page.getByRole("button",{name:"Add stopped result",exact:true}).click();
+  await page.getByLabel("Pain after",{exact:true}).fill("2");
+  await page.getByRole("button",{name:"Save measurements and pain check",exact:true}).click();
+  await expect(page.getByText("Measurements and pain check saved. Open Progress to see your results.")).toBeVisible();
+  await page.goto("/progress");
+  await expect(page.getByRole("heading",{name:"Measured movement over time"})).toBeVisible();
+  await expect(page.getByRole("cell",{name:"1 / 8",exact:true})).toBeVisible();
+  await expect(page.getByRole("img",{name:/Bodyweight squat, left/})).toBeVisible();
+});
