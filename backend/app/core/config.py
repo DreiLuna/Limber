@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-.env"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
+    # Secret for patient pseudonyms on the clinician dashboard. Falls back to jwt_secret.
+    pseudonym_secret: str = ""
     thresholds_path: Path = BACKEND_DIR / "config" / "thresholds.yaml"
     cors_origins: list[str] = ["http://localhost:5173"]
     # AI planning (M5). Leave empty to always use the rule-based fallback.
@@ -42,7 +44,18 @@ def get_settings() -> Settings:
 
 
 @lru_cache
-def get_thresholds() -> dict[str, Any]:
-    """Load thresholds.yaml once. Rules read from this instead of hard-coding numbers."""
+def load_default_thresholds() -> dict[str, Any]:
+    """thresholds.yaml, read once. It seeds config version 1 and is the fallback with no versions."""
     with open(get_settings().thresholds_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def get_thresholds() -> dict[str, Any]:
+    """Thresholds from the active model config version (clinician-editable), else thresholds.yaml.
+
+    Request handlers that write records should call model_config.service.get_active_config()
+    once and pass its thresholds down, so a whole request uses one version and can record its id.
+    """
+    from app.modules.model_config.service import get_active_config  # avoid import cycle
+
+    return get_active_config().thresholds

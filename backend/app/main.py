@@ -1,13 +1,19 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
 
 import app.models  # noqa: F401  (registers every table)
 from app.core.config import get_settings
+from app.core.database import SessionLocal
 from app.modules.assessment.router import router as assessment_router
 from app.modules.catalog.router import router as catalog_router
+from app.modules.clinician.router import router as clinician_router
+from app.modules.model_config.router import router as model_config_router
+from app.modules.model_config.service import ensure_seed_version
 from app.modules.notifications.email_reminders import run_email_reminder_worker
 from app.modules.notifications.router import router as notifications_router
 from app.modules.plans.router import router as plans_router
@@ -17,8 +23,18 @@ from app.modules.sessions.router import router as sessions_router
 from app.modules.users.router import router as users_router
 
 
+def _seed_model_config() -> None:
+    """Create config version 1 from thresholds.yaml on first start (no-op afterwards)."""
+    try:
+        with SessionLocal() as db:
+            ensure_seed_version(db)
+    except SQLAlchemyError:
+        logging.getLogger(__name__).warning("Could not seed model config; run `alembic upgrade head`")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _seed_model_config()
     worker = None
     if get_settings().email_reminders_enabled:
         worker = asyncio.create_task(run_email_reminder_worker())
@@ -42,7 +58,8 @@ app.add_middleware(
 
 api = APIRouter(prefix="/api")
 for r in (users_router, assessment_router, catalog_router, plans_router,
-          sessions_router, progress_router, reevaluation_router, notifications_router):
+          sessions_router, progress_router, reevaluation_router, notifications_router,
+          clinician_router, model_config_router):
     api.include_router(r)
 
 

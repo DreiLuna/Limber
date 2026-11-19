@@ -23,7 +23,7 @@ function errorMessage(status: number, detail: unknown): string {
   return (detail as { message?: string })?.message ?? `HTTP ${status}`;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (auth.token) headers.set("Authorization", `Bearer ${auth.token}`);
   if (init.body && !(init.body instanceof URLSearchParams)) headers.set("Content-Type", "application/json");
@@ -57,6 +57,7 @@ export const api = {
   sessions: () => request<SessionLog[]>("/sessions"),
   logSession: (session: SessionCreate) =>
     request<SessionLog>("/sessions", { method: "POST", body: JSON.stringify(session) }),
+  me: () => request<{ id: number; email: string; display_name: string; role: string }>("/users/me"),
   notifications: () => request<Notification[]>("/notifications"),
   markNotificationRead: (id: number) =>
     request<Notification>(`/notifications/${id}/read`, { method: "POST" }),

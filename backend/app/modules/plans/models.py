@@ -17,6 +17,10 @@ class RecoveryPlan(TimestampMixin, Base):
     frequency_per_week: Mapped[int] = mapped_column(Integer)
     source: Mapped[str] = mapped_column(String(20))  # "ai" or "fallback"
     start_date: Mapped[date] = mapped_column(Date)
+    # Which model_config_versions row produced this record (None = before versioning / YAML default).
+    config_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("model_config_versions.id", ondelete="SET NULL"), index=True
+    )
 
     items: Mapped[list["PlanItem"]] = relationship(
         back_populates="plan", cascade="all, delete-orphan", order_by="PlanItem.position"

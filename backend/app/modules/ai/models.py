@@ -17,3 +17,7 @@ class AIOutputLog(TimestampMixin, Base):
     errors: Mapped[list[str]] = mapped_column(JSON, default=list)
     used_fallback: Mapped[bool] = mapped_column(Boolean)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    # Which model_config_versions row produced this record (None = before versioning / YAML default).
+    config_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("model_config_versions.id", ondelete="SET NULL"), index=True
+    )

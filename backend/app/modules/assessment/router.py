@@ -9,6 +9,7 @@ from app.modules.assessment.models import Assessment
 from app.modules.assessment.schemas import AssessmentCreate, AssessmentOut, EligibilityOut
 from app.modules.assessment.scope import check_scope
 from app.modules.catalog.models import Exercise
+from app.modules.model_config.service import get_active_config
 from app.modules.notifications.models import Notification
 from app.modules.plans.models import RecoveryPlan
 from app.modules.users.models import User
@@ -20,7 +21,8 @@ router = APIRouter(prefix="/assessments", tags=["assessment"])
 def create_assessment(
     body: AssessmentCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> Assessment:
-    result = check_scope(body.body_region, body.pain_level, list(body.red_flags))
+    config = get_active_config(db)
+    result = check_scope(body.body_region, body.pain_level, list(body.red_flags), config.thresholds)
     assessment = Assessment(
         user_id=user.id,
         body_region=body.body_region,
@@ -32,6 +34,7 @@ def create_assessment(
         in_scope=result.in_scope,
         referral_reasons=result.referral_reasons,
         starting_difficulty=result.starting_difficulty,
+        config_version_id=config.id,
     )
     db.add(assessment)
     if not result.in_scope:

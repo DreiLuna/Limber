@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_thresholds
 from app.core.database import get_db, utcnow
 from app.core.deps import get_current_user
 from app.modules.ai.models import AIOutputLog
@@ -12,6 +11,7 @@ from app.modules.ai.planner import get_planner_client, plan_with_fallback
 from app.modules.assessment.eligibility import EligibilityService
 from app.modules.assessment.models import Assessment
 from app.modules.catalog.models import Exercise
+from app.modules.model_config.service import get_active_config
 from app.modules.notifications.models import Notification
 from app.modules.plans.models import PlanItem, RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
@@ -34,7 +34,8 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     ).limit(1))
     if stopped is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Complete a new check-in before creating another plan")
-    t = get_thresholds()
+    config = get_active_config(db)
+    t = config.thresholds
     assessment = db.scalar(
         select(Assessment).where(Assessment.user_id == user.id).order_by(Assessment.id.desc()).limit(1)
     )
@@ -49,7 +50,7 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
         )
 
     eligible = eligibility.exercises
-    client = get_planner_client()
+    client = get_planner_client(config)
     try:
         result = plan_with_fallback(
             eligible, assessment.activity_difficulties, client,
@@ -60,6 +61,7 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
                 "activity_difficulties": assessment.activity_difficulties,
                 "starting_difficulty": assessment.starting_difficulty,
             },
+            t=t,
         )
     except InsufficientExercisesError as exc:
         raise HTTPException(
@@ -75,6 +77,7 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
                       else {"raw": result.ai_response}),
             valid=result.source == "ai", errors=result.ai_errors,
             used_fallback=result.source == "fallback", latency_ms=result.latency_ms,
+            config_version_id=config.id,
         ))
 
     # Only one active plan per user.
@@ -94,6 +97,7 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
     plan = RecoveryPlan(
         user_id=user.id, assessment_id=assessment.id, difficulty_level=eligibility.scope.starting_difficulty,
         frequency_per_week=freq, source=result.source, start_date=start,
+        config_version_id=config.id,
     )
     plan.items = [
         PlanItem(exercise_id=p.exercise_id, position=i, sets=p.sets, reps=p.reps)

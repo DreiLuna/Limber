@@ -16,4 +16,5 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     display_name: str
+    role: str = "patient"
     subscription_status: str | None = None
