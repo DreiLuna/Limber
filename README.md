@@ -4,8 +4,9 @@ CSCI 5030 team project. A low-cost web app that gives people with minor lower ba
 knee, or ankle pain a structured exercise plan, tracks their recovery, and sends them to a
 licensed physical therapist when the rules say they need one.
 
-**Core idea:** rules decide what is allowed, the AI personalizes inside those limits,
-validation checks the AI, and only valid output reaches the user.
+**Core idea:** eligibility and referral rules decide what is allowed; the deterministic
+planner selects exercises within those limits. Camera summaries and pain checks inform
+progress reviews. The live planner does not call an AI provider.
 
 ## Stack
 
@@ -162,3 +163,16 @@ the code or the YAML file, so they are easy to change.
    level higher (beginner 2, intermediate 3). Expert, plyometric, and high-impact exercises are excluded.
 5. **Fallback sets and reps** use the bottom of each catalog range, the most conservative choice.
 6. **Schedule** is 3 sessions a week for 4 weeks (until the reassess rule), spread across each week.
+
+## Final-delivery direction
+
+Camera lab now supports bodyweight squats, seated knee extension and wall press-ups.
+Stop and add results, then save their numeric summaries with the normal session pain
+check. Progress charts compare cycles, hold time and observed angle span on the same
+side. Two full weeks of consistent measured movement and low pain are required before
+an automatic level increase; referral checks retain priority.
+
+See [camera workflow](docs/camera-lab.md), [published-guidance review and planner verdict](docs/guideline-review.md),
+and [hosted demo setup](docs/hosting.md). The historical AI adapter and validation tests
+remain in the repository, but are not part of live plan generation. The root Dockerfile
+and Render Blueprint prepare deployment; they do not constitute a live hosted URL.

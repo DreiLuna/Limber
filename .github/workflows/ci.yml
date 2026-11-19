@@ -40,4 +40,28 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
+      - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
+  hosted-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production container
+        run: docker build -t limber-demo-ci .
+      - name: Start isolated hosted smoke test
+        run: >-
+          docker run -d --name limber-demo-ci -p 8000:8000
+          -e DATABASE_URL=sqlite:////tmp/limber-ci.db
+          -e JWT_SECRET=ci-only-secret-at-least-32-characters-long
+          limber-demo-ci
+      - name: Verify API and client routes
+        run: |
+          curl --fail --retry 30 --retry-all-errors --retry-delay 2 http://localhost:8000/api/health
+          curl --fail http://localhost:8000/camera | grep 'id="root"'
+          curl --fail http://localhost:8000/progress | grep 'id="root"'
+      - name: Container logs
+        if: failure()
+        run: docker logs limber-demo-ci

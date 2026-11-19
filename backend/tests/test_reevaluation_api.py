@@ -6,6 +6,8 @@ from sqlalchemy import delete, select
 
 from app.core.database import SessionLocal
 from app.modules.assessment.models import Assessment
+from app.modules.measurements.models import MovementMeasurement
+from app.modules.measurements.schemas import SUPPORTED_EXERCISES
 from app.modules.notifications.models import Notification
 from app.modules.plans.models import RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
@@ -20,7 +22,7 @@ def seed(client, make_user, monkeypatch):
     monkeypatch.setattr("app.modules.reevaluation.service.utcnow", lambda: NOW)
     monkeypatch.setattr("app.modules.sessions.router.utcnow", lambda: NOW)
 
-    def make(weeks=(), level=1, region="knee", limitations=None):
+    def make(weeks=(), level=1, region="knee", limitations=None, measured=False):
         headers = make_user()
         assessment = client.post("/api/assessments", headers=headers, json={
             "body_region": region, "pain_level": 5, "limitations": limitations or [],
@@ -51,6 +53,19 @@ def seed(client, make_user, monkeypatch):
                             pain_before=pain, pain_after=pain, perceived_difficulty=3,
                         ))
             db.commit()
+        if measured:
+            with SessionLocal() as db:
+                plan = db.get(RecoveryPlan, plan_id)
+                items = [p for p in plan.items if p.exercise_id in SUPPORTED_EXERCISES]
+                assert items
+                for log in db.scalars(select(ExerciseSession).where(ExerciseSession.plan_id == plan_id)):
+                    for item in items:
+                        db.add(MovementMeasurement(user_id=plan.user_id, session_id=log.id,
+                            exercise_id=item.exercise_id, protocol="movement-v1", side="left",
+                            reps=item.sets * item.reps, target_reps=item.sets * item.reps, partials=0,
+                            min_angle=90, max_angle=170, hold_seconds=3,
+                            duration_seconds=20, tracking_ratio=.95))
+                db.commit()
         return headers, plan_id
     return make
 
@@ -87,7 +102,7 @@ def test_reduce_frequency_once_preserves_history(client, seed, weeks):
 
 
 def test_increase_uses_eligible_exercises_and_catalog_doses(client, seed):
-    headers, _ = seed([(3, 3), (3, 3)], limitations=["cannot_kneel"])
+    headers, _ = seed([(3, 3), (3, 3)], limitations=["cannot_kneel"], measured=True)
     for _ in range(2):
         assert client.post("/api/reevaluations", headers=headers).json()["action"] == "increase"
     plan = client.get("/api/plans/current", headers=headers).json()
@@ -141,7 +156,7 @@ def test_logging_urgent_data_automatically_refers_even_after_continue(client, se
 
 @pytest.mark.parametrize("automatic", [False, True], ids=["manual-review", "session-save"])
 def test_missing_next_level_catalog_requests_reassessment(client, seed, monkeypatch, t, automatic):
-    headers, plan_id = seed([(3, 3), (3, 3)])
+    headers, plan_id = seed([(3, 3), (3, 3)], measured=True)
     monkeypatch.setitem(t["plan"], "min_exercises", 100_000)
     if automatic:
         result = client.post("/api/sessions", headers=headers, json={

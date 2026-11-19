@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_thresholds
 from app.core.database import get_db, utcnow
 from app.core.deps import get_current_user
-from app.modules.ai.models import AIOutputLog
-from app.modules.ai.planner import get_planner_client, plan_with_fallback
+from app.modules.ai.planner import plan_with_fallback
 from app.modules.assessment.eligibility import EligibilityService
 from app.modules.assessment.models import Assessment
 from app.modules.catalog.models import Exercise
@@ -49,7 +48,7 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
         )
 
     eligible = eligibility.exercises
-    client = get_planner_client()
+    client = None  # Final-delivery verdict: deterministic plans; no demonstrated AI benefit.
     try:
         result = plan_with_fallback(
             eligible, assessment.activity_difficulties, client,
@@ -67,15 +66,6 @@ def create_plan(user: User = Depends(get_current_user), db: Session = Depends(ge
             {"message": "Not enough approved exercises for this case: see a licensed physical therapist",
              "detail": str(exc)},
         ) from exc
-
-    if client is not None:
-        db.add(AIOutputLog(
-            user_id=user.id, task="plan", request={"assessment_id": assessment.id},
-            response=(result.ai_response if isinstance(result.ai_response, dict)
-                      else {"raw": result.ai_response}),
-            valid=result.source == "ai", errors=result.ai_errors,
-            used_fallback=result.source == "fallback", latency_ms=result.latency_ms,
-        ))
 
     # Only one active plan per user.
     for old in db.scalars(select(RecoveryPlan).where(

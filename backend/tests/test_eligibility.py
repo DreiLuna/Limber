@@ -93,10 +93,10 @@ def test_stored_scope_flag_cannot_bypass_current_rules(client, make_user, monkey
         row.starting_difficulty = 1
         db.commit()
 
-    def unexpected_planner_call():
+    def unexpected_planner_call(*args, **kwargs):
         pytest.fail("Out-of-scope data must be blocked before obtaining an AI client")
 
-    monkeypatch.setattr("app.modules.plans.router.get_planner_client", unexpected_planner_call)
+    monkeypatch.setattr("app.modules.plans.router.plan_with_fallback", unexpected_planner_call)
     preview = client.get("/api/assessments/latest/eligibility", headers=headers)
     assert preview.status_code == 200
     assert preview.json()["referral_reasons"] == ["pain_too_high:8"]

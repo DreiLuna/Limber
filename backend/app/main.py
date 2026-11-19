@@ -6,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  (registers every table)
 from app.core.config import get_settings
+from app.core.web import mount_frontend
 from app.modules.assessment.router import router as assessment_router
 from app.modules.catalog.router import router as catalog_router
+from app.modules.measurements.router import router as measurements_router
 from app.modules.notifications.email_reminders import run_email_reminder_worker
 from app.modules.notifications.router import router as notifications_router
 from app.modules.plans.router import router as plans_router
@@ -42,7 +44,7 @@ app.add_middleware(
 
 api = APIRouter(prefix="/api")
 for r in (users_router, assessment_router, catalog_router, plans_router,
-          sessions_router, progress_router, reevaluation_router, notifications_router):
+          sessions_router, measurements_router, progress_router, reevaluation_router, notifications_router):
     api.include_router(r)
 
 
@@ -52,3 +54,5 @@ def health() -> dict[str, str]:
 
 
 app.include_router(api)
+
+mount_frontend(app, get_settings().frontend_dist)

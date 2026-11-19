@@ -10,6 +10,7 @@ from app.core.vocab import ReevaluationAction as Action
 from app.modules.assessment.models import Assessment
 from app.modules.assessment.scope import check_scope
 from app.modules.catalog.models import Exercise
+from app.modules.measurements.evidence import progression_evidence
 from app.modules.notifications.models import Notification
 from app.modules.plans.models import PlanItem, RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
@@ -103,6 +104,17 @@ def reevaluate_plan(db: Session, plan: RecoveryPlan) -> ReevaluationDecision:
     decision = Decision(Action.REFER, urgent) if urgent else evaluate(ReevaluationInput(
         weeks, assessment.pain_level, plan.difficulty_level, since,
     ), thresholds)
+
+    if decision.action == Action.INCREASE:
+        policy = thresholds["measured_progress"]
+        missing = progression_evidence(db, plan, len(weeks), policy)
+        if any(w.max_session_pain is None or w.max_session_pain > policy["pain_at_most"]
+               for w in weeks[-policy["weeks"]:]):
+            missing = ["measured_progress_requires_low_pain"]
+        if missing:
+            decision = Decision(Action.CONTINUE, missing)
+        else:
+            decision.reasons.append("two_weeks_measured_movement_and_low_pain")
 
     # Check referral BEFORE the idempotency guard: new urgent data always wins.
     period_start = datetime.combine(plan.start_date + timedelta(weeks=len(weeks)), time(), tzinfo=UTC)

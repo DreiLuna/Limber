@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -12,6 +12,15 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BACKEND_DIR.parent / ".env", extra="ignore")
+
+    frontend_dist: Path | None = None
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def postgres_driver(cls, value):
+        if isinstance(value, str) and value.startswith(("postgres://", "postgresql://")):
+            return "postgresql+psycopg://" + value.split("://", 1)[1]
+        return value
 
     database_url: str = "postgresql+psycopg://limber:limber@localhost:5432/limber"
     jwt_secret: str = "change-me-in-.env"

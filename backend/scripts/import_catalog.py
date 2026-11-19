@@ -133,6 +133,9 @@ def apply_overrides(catalog: list[dict[str, Any]], raw_by_id: dict[str, dict]) -
     exclude = set(ov.get("exclude", []) or [])
     patches: dict[str, dict] = ov.get("patch", {}) or {}
     out = [dict(e, **patches.get(e["id"], {})) for e in catalog if e["id"] not in exclude]
+    additions = ov.get("add", []) or []
+    existing = {item["id"] for item in out}
+    out.extend(item for item in additions if item["id"] not in existing and item["id"] not in exclude)
     return out
 
 

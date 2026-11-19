@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.core.config import get_thresholds
+from app.modules.measurements.schemas import SUPPORTED_EXERCISES
 
 
 class ExerciseLike(Protocol):
@@ -68,7 +69,8 @@ def rank_for_fallback(
 ) -> list[ExerciseLike]:
     return sorted(
         eligible,
-        key=lambda e: (e.difficulty, -activity_match_count(e, activity_difficulties), e.id),
+        key=lambda e: (e.difficulty, -activity_match_count(e, activity_difficulties),
+                       e.id not in SUPPORTED_EXERCISES, e.id),
     )
 
 

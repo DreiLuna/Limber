@@ -3,6 +3,7 @@ import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-route
 import { api, auth } from "./api";
 import type { Notification } from "./types";
 import AuthPage from "./pages/AuthPage";
+import CameraPage from "./pages/CameraPage";
 import ExercisePage from "./pages/ExercisePage";
 import IntakePage from "./pages/IntakePage";
 import LibraryPage from "./pages/LibraryPage";
@@ -99,6 +100,7 @@ export default function App() {
               <NavLink to="/plan" className={navClass}>My plan</NavLink>
               <NavLink to="/intake" className={navClass}>Check-in</NavLink>
               <NavLink to="/progress" className={navClass}>Progress</NavLink>
+              <NavLink to="/camera" className={navClass}>Camera lab</NavLink>
               <div ref={notificationsRef} className="relative ml-auto">
                 <button
                   type="button"
@@ -153,6 +155,7 @@ export default function App() {
           <Route path="/intake" element={guard(<IntakePage />)} />
           <Route path="/plan" element={guard(<PlanPage />)} />
           <Route path="/progress" element={guard(<ProgressPage />)} />
+          <Route path="/camera" element={guard(<CameraPage />)} />
           <Route path="/library" element={<LibraryPage signedIn={!!token} />} />
           <Route path="/library/:id" element={<ExercisePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

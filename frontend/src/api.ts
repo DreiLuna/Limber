@@ -34,6 +34,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  measurements: () => request<import("./types").SavedMeasurement[]>("/measurements"),
   register: (email: string, password: string, display_name = "") =>
     request<{ access_token: string }>("/auth/register", {
       method: "POST", body: JSON.stringify({ email, password, display_name }),

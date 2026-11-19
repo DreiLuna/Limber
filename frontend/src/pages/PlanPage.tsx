@@ -50,6 +50,7 @@ export default function PlanPage() {
                   {item.sets} x {item.reps}{ex?.category === "stretching" ? " holds (30s)" : " reps"}
                 </span>
               </div>
+              {["Bodyweight_Squat", "Seated_Knee_Extension", "Wall_Press_Up"].includes(item.exercise_id) && <Link to="/camera" className="mt-2 inline-block text-sm text-teal-800 underline">Measure this exercise in Camera lab</Link>}
               {ex && (
                 <div className="mt-3 flex flex-col gap-4 sm:flex-row">
                   {ex.media[0] && <img src={ex.media[0]} alt="" className="h-28 w-40 rounded object-cover"

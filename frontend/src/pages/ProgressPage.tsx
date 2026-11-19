@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import MeasuredProgress from "../components/MeasuredProgress";
 import { ApiError, api } from "../api";
 import { RED_FLAGS, label, type Notification, type Plan, type Progress, type SessionLog } from "../types";
 
@@ -112,13 +113,13 @@ export default function ProgressPage() {
     try {
       const result = await api.reevaluate();
       const messages: Record<string, string> = {
-        continue: "Continue your current plan. Weekly adjustments use completed weeks of progress.",
+        continue: "Continue your current plan. Level increases require two full weeks of low pain and consistent measured movement.",
         reduce: "Your plan was reviewed. Check My plan for the current session frequency.",
         increase: "Your exercise level was increased. Check My plan for the updated exercises.",
         reassess: "Please complete a new check-in before continuing your plan.",
         refer: "Your plan has been stopped. Please contact a licensed physical therapist.",
       };
-      setSuccess(messages[result.action] ?? "Your plan was reviewed.");
+      setSuccess((messages[result.action] ?? "Your plan was reviewed.") + (result.reasons.length ? ` Reason: ${result.reasons.map(label).join("; ")}.` : ""));
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not review your plan.");
@@ -128,6 +129,7 @@ export default function ProgressPage() {
   if (loading) return <p role="status">Loading your progress…</p>;
   if (!plan) return <div className="space-y-4">
     <h1 className="text-2xl font-semibold">Progress</h1>
+    <MeasuredProgress />
     {error && <p role="alert" className="text-red-800">{error}</p>}
     {success && <p role="status">{success}</p>}
     {notifications.filter((notice) => notice.kind === "referral" || notice.kind === "plan_update")
@@ -179,6 +181,7 @@ export default function ProgressPage() {
         </div> : <p className="text-sm text-slate-500">Your weekly summary will appear after a session is due.</p>}
       </section>
 
+      <MeasuredProgress />
       <section className="rounded-xl bg-white p-5 shadow-sm" aria-labelledby="log-session-title">
         <h2 id="log-session-title" className="mb-1 text-lg font-semibold">Log a session</h2>
         <p className="mb-4 text-sm text-slate-500">Record completion and pain so your weekly progress stays current.</p>
