@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { lazy, useEffect, useRef, useState } from "react";
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, auth } from "./api";
 import type { Notification } from "./types";
+import ClinicianLayout from "./clinician/ClinicianLayout";
 import AuthPage from "./pages/AuthPage";
 import ExercisePage from "./pages/ExercisePage";
 import IntakePage from "./pages/IntakePage";
@@ -9,11 +10,19 @@ import LibraryPage from "./pages/LibraryPage";
 import PlanPage from "./pages/PlanPage";
 import ProgressPage from "./pages/ProgressPage";
 
+// The clinician dashboard (and its chart library) is only downloaded by clinicians.
+const OverviewPage = lazy(() => import("./clinician/OverviewPage"));
+const PatientsPage = lazy(() => import("./clinician/PatientsPage"));
+const PatientDetailPage = lazy(() => import("./clinician/PatientsPage").then((m) => ({ default: m.PatientDetailPage })));
+const ConfigPage = lazy(() => import("./clinician/ConfigPage"));
+
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 rounded-lg px-3 py-1.5 text-sm ${isActive ? "bg-teal-50 font-medium text-teal-800" : "text-slate-600 hover:bg-slate-100"}`;
 
 export default function App() {
   const [token, setToken] = useState(auth.token);
+  const [role, setRole] = useState<string | null>(null);
+  const location = useLocation();
   const [landing, setLanding] = useState("/plan");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -24,8 +33,17 @@ export default function App() {
   const navigate = useNavigate();
   // New accounts go straight to intake; returning users land on their plan.
   const signIn = (t: string, isNew: boolean) => { auth.set(t); setLanding(isNew ? "/intake" : "/plan"); setToken(t); };
-  const signOut = () => { auth.set(null); setToken(null); navigate("/"); };
+  const signOut = () => { auth.set(null); setToken(null); setRole(null); navigate("/"); };
   const guard = (el: React.ReactElement) => (token ? el : <Navigate to="/" replace />);
+  const isClinician = role === "clinician";
+  const clinicianGuard = (el: React.ReactElement) =>
+    !token ? <Navigate to="/" replace /> : role === null ? <p className="text-sm text-slate-500">Loading…</p>
+      : isClinician ? el : <Navigate to="/plan" replace />;
+
+  useEffect(() => {
+    if (!token) { setRole(null); return; }
+    api.me().then((u) => setRole(u.role)).catch(() => { auth.set(null); setToken(null); });
+  }, [token]);
 
   async function loadNotifications() {
     try {
@@ -37,9 +55,9 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (token) void loadNotifications();
+    if (token && role === "patient") void loadNotifications();
     else setNotifications([]);
-  }, [token]);
+  }, [token, role]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -89,12 +107,22 @@ export default function App() {
   const visibleNotifications = notificationTab === "alerts" ? alertNotifications : upcomingReminders;
   const unreadCount = alertNotifications.filter((notification) => !notification.read).length;
 
+  const wide = location.pathname.startsWith("/clinician");
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-1 overflow-visible px-4 py-3">
+        <nav className={`mx-auto flex ${wide ? "max-w-6xl" : "max-w-5xl"} flex-wrap items-center gap-1 overflow-visible px-4 py-3`}>
           <Link to="/" className="mr-3 shrink-0 text-lg font-bold tracking-tight text-teal-700">LIMBER</Link>
-          {token && (
+          {token && isClinician && (
+            <>
+              <NavLink to="/clinician" end className={navClass}>Dashboard</NavLink>
+              <NavLink to="/clinician/patients" className={navClass}>Patients</NavLink>
+              <NavLink to="/clinician/config" className={navClass}>Model config</NavLink>
+              <button onClick={signOut} className="ml-auto shrink-0 pl-3 text-sm text-slate-500 hover:underline">Sign out</button>
+            </>
+          )}
+          {token && role !== null && !isClinician && (
             <>
               <NavLink to="/plan" className={navClass}>My plan</NavLink>
               <NavLink to="/intake" className={navClass}>Check-in</NavLink>
@@ -143,13 +171,21 @@ export default function App() {
               <button onClick={signOut} className="ml-auto shrink-0 pl-3 text-sm text-slate-500 hover:underline">Sign out</button>
             </>
           )}
-          <NavLink to="/library" className={`${navClass} ${token ? "" : "ml-auto"}`}>Library</NavLink>
+          {!isClinician && <NavLink to="/library" className={`${navClass} ${token ? "" : "ml-auto"}`}>Library</NavLink>}
           {!token && <Link to="/" className="ml-auto shrink-0 rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">Sign in</Link>}
         </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className={`mx-auto ${wide ? "max-w-6xl" : "max-w-5xl"} px-4 py-8`}>
         <Routes>
-          <Route path="/" element={token ? <Navigate to={landing} replace /> : <AuthPage onAuth={signIn} />} />
+          <Route path="/" element={!token ? <AuthPage onAuth={signIn} />
+            : role === null ? <p className="text-sm text-slate-500">Loading…</p>
+              : <Navigate to={isClinician ? "/clinician" : landing} replace />} />
+          <Route path="/clinician" element={clinicianGuard(<ClinicianLayout />)}>
+            <Route index element={<OverviewPage />} />
+            <Route path="patients" element={<PatientsPage />} />
+            <Route path="patients/:code" element={<PatientDetailPage />} />
+            <Route path="config" element={<ConfigPage />} />
+          </Route>
           <Route path="/intake" element={guard(<IntakePage />)} />
           <Route path="/plan" element={guard(<PlanPage />)} />
           <Route path="/progress" element={guard(<ProgressPage />)} />
