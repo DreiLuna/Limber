@@ -81,7 +81,7 @@ npm run dev
 
 ```bash
 cd backend
-pytest --cov=app        # 177 tests, uses a throwaway SQLite database
+pytest --cov=app        # 180 tests, uses a throwaway SQLite database
 ruff check app tests scripts
 ```
 
