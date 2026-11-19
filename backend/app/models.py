@@ -2,6 +2,7 @@
 from app.modules.ai.models import AIOutputLog  # noqa: F401
 from app.modules.assessment.models import Assessment  # noqa: F401
 from app.modules.catalog.models import Exercise  # noqa: F401
+from app.modules.model_config.models import ModelConfigVersion  # noqa: F401
 from app.modules.notifications.models import Notification  # noqa: F401
 from app.modules.plans.models import PlanItem, RecoveryPlan, ScheduledSession  # noqa: F401
 from app.modules.progress.models import ProgressRecord  # noqa: F401

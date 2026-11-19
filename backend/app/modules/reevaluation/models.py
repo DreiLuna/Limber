@@ -12,3 +12,7 @@ class ReevaluationDecision(TimestampMixin, Base):
     plan_id: Mapped[int] = mapped_column(ForeignKey("recovery_plans.id", ondelete="CASCADE"))
     action: Mapped[str] = mapped_column(String(20))
     reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Which model_config_versions row produced this record (None = before versioning / YAML default).
+    config_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("model_config_versions.id", ondelete="SET NULL"), index=True
+    )

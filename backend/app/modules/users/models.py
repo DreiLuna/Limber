@@ -13,6 +13,8 @@ class User(TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(100), default="")
+    # "patient" (default) or "clinician". Clinicians can read anonymized cohort analytics.
+    role: Mapped[str] = mapped_column(String(20), default="patient", server_default="patient", index=True)
 
     subscription: Mapped["Subscription | None"] = relationship(back_populates="user", uselist=False)
 

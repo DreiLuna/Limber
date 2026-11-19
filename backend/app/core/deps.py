@@ -21,3 +21,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def require_clinician(user: User = Depends(get_current_user)) -> User:
+    """Gate for /api/clinician/*. Patients get 403; roles are only set by scripts/create_clinician.py."""
+    if user.role != "clinician":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Clinician access required")
+    return user

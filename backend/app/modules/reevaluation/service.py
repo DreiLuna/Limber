@@ -4,12 +4,12 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_thresholds
 from app.core.database import utcnow
 from app.core.vocab import ReevaluationAction as Action
 from app.modules.assessment.models import Assessment
 from app.modules.assessment.scope import check_scope
 from app.modules.catalog.models import Exercise
+from app.modules.model_config.service import get_active_config
 from app.modules.notifications.models import Notification
 from app.modules.plans.models import PlanItem, RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
@@ -83,7 +83,8 @@ def _reschedule(db: Session, plan: RecoveryPlan, now: datetime, weeks: int) -> N
 def reevaluate_plan(db: Session, plan: RecoveryPlan) -> ReevaluationDecision:
     """Caller holds the plan row lock and commits together with any session log."""
     now = utcnow()
-    thresholds = get_thresholds()
+    config = get_active_config(db)
+    thresholds = config.thresholds
     assessment = db.get(Assessment, plan.assessment_id)
     scope = check_scope(assessment.body_region, assessment.pain_level, assessment.red_flags, thresholds)
     logs = list(db.scalars(select(ExerciseSession).where(
@@ -150,6 +151,7 @@ def reevaluate_plan(db: Session, plan: RecoveryPlan) -> ReevaluationDecision:
         message = None
     record = ReevaluationDecision(
         user_id=plan.user_id, plan_id=plan.id, action=decision.action.value, reasons=reasons, created_at=now,
+        config_version_id=config.id,
     )
     db.add(record)
     if message:
