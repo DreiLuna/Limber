@@ -236,8 +236,7 @@ function Editor({ active, draft, setDraft, onSaved }: {
           <Field label="Sessions per week"><NumberInput value={t.plan.default_frequency_per_week} min={1} max={7} onChange={(n) => update((x) => { x.plan.default_frequency_per_week = n; })} /></Field>
         </Card>
 
-        <Card title="AI guardrails">
-          <Field label="AI timeout"><NumberInput value={t.ai.timeout_seconds} min={1} max={120} suffix="sec" onChange={(n) => update((x) => { x.ai.timeout_seconds = n; })} /></Field>
+        <Card title="AI guardrails" blurb="The AI request timeout is set by LLM_TIMEOUT_S in .env, not here.">
           <Field label="Largest difficulty change the AI may suggest"><NumberInput value={t.ai.max_difficulty_change} min={0} max={2} suffix="levels" onChange={(n) => update((x) => { x.ai.max_difficulty_change = n; })} /></Field>
         </Card>
       </div>

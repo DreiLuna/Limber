@@ -4,7 +4,9 @@ Milestone in parentheses is when the endpoint is due in the proposal. Several ar
 
 All routes live under `/api`. Request and response bodies are JSON unless noted.
 Every route except `auth/*`, `exercises`, and `health` needs `Authorization: Bearer <token>`,
-and every query is scoped to the token's user. Interactive docs run at `http://localhost:8000/docs`.
+and every query is scoped to the token's user. The exception is `/clinician/*`, which needs a token whose
+user has `role: "clinician"` and returns anonymized data across all patients (see
+`docs/clinician-dashboard.md`). Interactive docs run at `http://localhost:8000/docs`.
 
 Status column: **done** = implemented and tested, **stub** = contract fixed, returns 501 until its milestone.
 
@@ -24,6 +26,9 @@ Status column: **done** = implemented and tested, **stub** = contract fixed, ret
 | GET | `/progress` | Progress (M4) | stub |
 | POST | `/reevaluations` | Reevaluation (M4) | stub |
 | GET | `/notifications` | Notifications | done (read only) |
+| GET | `/clinician/overview`, `/clinician/analytics/{intake,outcomes,rules,ai,by-version}` | Clinician | done |
+| GET | `/clinician/patients`, `/clinician/patients/{code}` | Clinician | done |
+| GET, POST | `/clinician/config/*` (active, defaults, versions, activate, diff, preview-prompt) | Model config | done |
 | GET | `/health` | | done |
 
 ## Shared vocabularies
@@ -45,6 +50,9 @@ Defined once in `backend/app/core/vocab.py` and mirrored in `frontend/src/types.
 `201 { "access_token": "...", "token_type": "bearer" }`, `409` if the email exists.
 
 `POST /auth/login` takes form fields `username` (the email) and `password`. `401` on bad credentials.
+
+`GET /users/me` returns `{ id, email, display_name, role, subscription_status }`. `role` is `patient` or
+`clinician`; registration always creates a patient, and only `scripts/create_clinician.py` makes a clinician.
 
 ## Assessment
 
@@ -136,6 +144,7 @@ Planners must select only from this approved set.
 
 Pain must be a JSON integer from 0 to 10; booleans, strings, and fractional values return `422`.
 
-Thresholds in `backend/config/thresholds.yaml` are student MVP policy values. They
+Thresholds are read from the active `model_config_versions` row (version 1 is seeded from
+`backend/config/thresholds.yaml`); clinicians edit them on the dashboard. They are student MVP policy values. They
 require documented published guidance or clinician review before being treated
 as clinically validated rules.

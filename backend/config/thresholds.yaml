@@ -45,5 +45,6 @@ reevaluation:
   reassess_after_weeks: 4
 
 ai:
+  # Not read by the planner; the request timeout is LLM_TIMEOUT_S in .env.
   timeout_seconds: 5
   max_difficulty_change: 1
