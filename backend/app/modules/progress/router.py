@@ -42,7 +42,7 @@ def get_progress(user: User = Depends(get_current_user), db: Session = Depends(g
         if week is None:
             week = max(0, (item.performed_at.date() - plan.start_date).days // 7)
             schedule_counts.setdefault(week, 0)
-        logs.append(SessionLog(week, item.completed, item.pain_after))
+        logs.append(SessionLog(week, item.completed, item.pain_after, item.pain_before, item.perceived_difficulty))
 
     stats = compute_weekly_stats(logs, schedule_counts)
     for week in stats:

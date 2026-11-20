@@ -10,6 +10,8 @@ class SessionLog:
     week_index: int
     completed: bool
     pain_after: int
+    pain_before: int
+    perceived_difficulty: int
 
 
 @dataclass(frozen=True)
@@ -30,15 +32,15 @@ def compute_weekly_stats(
         by_week[s.week_index].append(s)
 
     stats: list[WeekStats] = []
-    prev_avg: float | None = None
     for week in sorted(scheduled_per_week):
         scheduled = scheduled_per_week[week]
         logs = by_week.get(week, [])
         done = [s for s in logs if s.completed]
-        completion = min(1.0, len(done) / scheduled) if scheduled else 0.0
         avg = round(sum(s.pain_after for s in done) / len(done), 2) if done else None
         max_pain = max((s.pain_after for s in logs), default=None)
-        change = round(avg - prev_avg, 2) if avg is not None and prev_avg is not None else None
+        change = round(s.pain_after - s.pain_before, 2)
+        completion = min(1.0, min(1.0, (len(done) / scheduled)) - 
+                         ((change * 0.1) * s.perceived_difficulty)) if scheduled else 0.0
         stats.append(
             WeekStats(
                 week_index=week,
@@ -49,6 +51,4 @@ def compute_weekly_stats(
                 missed_sessions=max(0, scheduled - len(done)),
             )
         )
-        if avg is not None:
-            prev_avg = avg
     return stats
