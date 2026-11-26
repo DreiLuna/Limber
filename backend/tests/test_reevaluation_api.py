@@ -189,7 +189,11 @@ def test_session_save_automatically_applies_weekly_reduction(client, seed):
         decision = db.scalar(select(ReevaluationDecision).where(ReevaluationDecision.plan_id == plan_id))
         assert decision.action == "reduce"
     notices = client.get("/api/notifications", headers=headers).json()
-    assert any(notice["kind"] == "plan_update" for notice in notices)
+    explanation = "Your weekly session completion was below the target."
+    update = next(notice for notice in notices if notice["kind"] == "plan_update")
+    assert explanation in update["message"]
+    review = client.post("/api/reevaluations", headers=headers).json()
+    assert review["explanations"] == [explanation]
     future_dates = {item["scheduled_date"] for item in plan["schedule"]
                     if item["scheduled_date"] > NOW.date().isoformat()}
     reminders = [notice for notice in notices if notice["kind"] == "reminder"]

@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.modules.plans.models import RecoveryPlan
 from app.modules.reevaluation.models import ReevaluationDecision
+from app.modules.reevaluation.rules import explain_reasons
 from app.modules.reevaluation.schemas import DecisionOut
 from app.modules.reevaluation.service import reevaluate_plan
 from app.modules.users.models import User
@@ -32,4 +33,7 @@ def reevaluate(user: User = Depends(get_current_user), db: Session = Depends(get
         db.commit()
     else:
         raise HTTPException(409, "No active recovery plan")
-    return DecisionOut(plan_id=plan.id, action=record.action, reasons=record.reasons)
+    return DecisionOut(
+        plan_id=plan.id, action=record.action, reasons=record.reasons,
+        explanations=explain_reasons(record.reasons),
+    )

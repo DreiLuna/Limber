@@ -16,7 +16,7 @@ from app.modules.plans.scheduling import build_schedule
 from app.modules.progress.metrics import WeekStats
 from app.modules.recommendation.filtering import InsufficientExercisesError, build_fallback_plan, filter_exercises
 from app.modules.reevaluation.models import ReevaluationDecision
-from app.modules.reevaluation.rules import Decision, ReevaluationInput, evaluate
+from app.modules.reevaluation.rules import Decision, ReevaluationInput, evaluate, explain_reasons
 from app.modules.sessions.models import ExerciseSession, PainReport
 
 
@@ -155,7 +155,7 @@ def reevaluate_plan(db: Session, plan: RecoveryPlan) -> ReevaluationDecision:
     if message:
         db.add(Notification(
             user_id=plan.user_id, kind="referral" if decision.action == Action.REFER else "plan_update",
-            message=message, send_at=now, read=False,
+            message=" ".join([message, *explain_reasons(reasons)]), send_at=now, read=False,
         ))
     db.flush()
     return record

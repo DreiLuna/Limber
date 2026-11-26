@@ -118,7 +118,7 @@ export default function ProgressPage() {
         reassess: "Please complete a new check-in before continuing your plan.",
         refer: "Your plan has been stopped. Please contact a licensed physical therapist.",
       };
-      setSuccess(messages[result.action] ?? "Your plan was reviewed.");
+      setSuccess([messages[result.action] ?? "Your plan was reviewed.", ...(result.explanations ?? [])].join(" "));
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not review your plan.");
