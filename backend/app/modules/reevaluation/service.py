@@ -78,7 +78,10 @@ def _reschedule(db: Session, plan: RecoveryPlan, now: datetime, weeks: int) -> N
             send_at=datetime.combine(day, time(9), tzinfo=UTC),
             message=f"Your updated LIMBER plan has a session on {day.isoformat()}.",
         ))
-
+scheduled = ScheduledSession(plan_id=plan.id, user_id=plan.user_id, scheduled_date=day, week_index=week)
+        db.add(scheduled)
+        db.flush()user_id=plan.user_id, kind="reminder", read=False,
+            scheduled_session_id=scheduled.id,
 
 def reevaluate_plan(db: Session, plan: RecoveryPlan) -> ReevaluationDecision:
     """Caller holds the plan row lock and commits together with any session log."""
