@@ -6,11 +6,13 @@ from sqlalchemy import delete, select
 
 from app.core.database import SessionLocal
 from app.modules.assessment.models import Assessment
+from app.modules.notifications import email_reminders
 from app.modules.notifications.models import Notification
 from app.modules.plans.models import RecoveryPlan, ScheduledSession
 from app.modules.plans.scheduling import build_schedule
 from app.modules.reevaluation.models import ReevaluationDecision
 from app.modules.sessions.models import ExerciseSession, PainReport
+from app.modules.users.models import User
 
 NOW = datetime(2026, 11, 20, 12, tzinfo=UTC)
 
@@ -177,7 +179,7 @@ def test_another_users_warning_does_not_affect_this_plan(client, seed):
     assert client.get("/api/plans/current", headers=bob).status_code == 200
 
 
-def test_session_save_automatically_applies_weekly_reduction(client, seed):
+def test_session_save_automatically_applies_weekly_reduction(client, seed, monkeypatch):
     headers, plan_id = seed([(1, 3)])
     saved = client.post("/api/sessions", headers=headers, json={
         "completed": True, "pain_before": 3, "pain_after": 3, "perceived_difficulty": 3,
@@ -194,6 +196,18 @@ def test_session_save_automatically_applies_weekly_reduction(client, seed):
                     if item["scheduled_date"] > NOW.date().isoformat()}
     reminders = [notice for notice in notices if notice["kind"] == "reminder"]
     assert {notice["send_at"][:10] for notice in reminders} == future_dates
+    sent = []
+    monkeypatch.setattr(email_reminders, "_smtp_ready", lambda: True)
+    monkeypatch.setattr(email_reminders, "_send_email", lambda recipient, day: sent.append((recipient, day)))
+    with SessionLocal() as db:
+        user = db.get(User, db.get(RecoveryPlan, plan_id).user_id)
+        next_day = min(item.scheduled_date for item in db.scalars(select(ScheduledSession).where(
+            ScheduledSession.plan_id == plan_id, ScheduledSession.scheduled_date > NOW.date(),
+        )))
+        due_at = datetime.combine(next_day, datetime.min.time(), tzinfo=UTC)
+        email_reminders.deliver_due_reminder_emails(db, due_at)
+        email_reminders.deliver_due_reminder_emails(db, due_at)
+        assert [day for recipient, day in sent if recipient == user.email] == [next_day]
 
 
 def test_extra_sessions_do_not_turn_low_adherence_into_increase(client, seed):
