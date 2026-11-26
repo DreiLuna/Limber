@@ -30,6 +30,7 @@ test.beforeEach(async ({ page }) => {
       const timer = setInterval(() => { ctx.fillStyle = "#132d38"; ctx.fillRect(0, 0, 640, 480); }, 50);
       const stream = canvas.captureStream(20);
       const track = stream.getVideoTracks()[0];
+      window.cameraTest.track = track;
       const original = track.stop.bind(track);
       track.stop = () => { window.cameraTest.stops++; clearInterval(timer); original(); };
       return stream;
@@ -84,6 +85,22 @@ test("stop during model loading cannot restart the camera later", async ({ page 
   await expect.poll(() => page.evaluate(() => window.cameraTest.closed)).toBe(1);
   await expect(page.getByRole("status")).toHaveText("Camera is off.");
   expect(await page.evaluate(() => window.cameraTest.stops)).toBe(1);
+});
+
+test("disconnect during model loading releases the camera and allows retry", async ({ page }) => {
+  await page.evaluate(() => { window.cameraTest.delayModel = true; });
+  await page.getByRole("button", { name: "Start camera", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => typeof window.cameraTest.resolveModel)).toBe("function");
+  await page.evaluate(() => window.cameraTest.track.dispatchEvent(new Event("ended")));
+  await expect(page.getByRole("alert")).toContainText("The camera disconnected.");
+  await page.evaluate(() => {
+    window.cameraTest.delayModel = false;
+    window.cameraTest.resolveModel();
+  });
+  await expect.poll(() => page.evaluate(() => window.cameraTest.closed)).toBe(1);
+  expect(await page.evaluate(() => window.cameraTest.stops)).toBe(1);
+  await page.getByRole("button", { name: "Start camera", exact: true }).click();
+  await expect(page.getByText("Camera on · processed locally", { exact: true })).toBeVisible();
 });
 
 test("rendered counter counts complete cycles and pauses on tracking loss", async ({ page }) => {
@@ -162,6 +179,16 @@ test("numeric result saves with pain check and reloads in measured progress",asy
   for (const angle of [170,135,100,170]) await holdMovement(page,"Bodyweight_Squat",angle);
   await page.getByRole("button",{name:"Stop camera",exact:true}).click();
   await page.getByRole("button",{name:"Add stopped result",exact:true}).click();
+  const result = page.getByText(/Bodyweight squat: 1 cycles/);
+  const original = await result.innerText();
+  // Cancelling a restart must preserve the previous recording's tracking quality.
+  await page.evaluate(() => { window.cameraTest.delayModel = true; });
+  await page.getByRole("button", { name: "Start camera", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => typeof window.cameraTest.resolveModel)).toBe("function");
+  await page.getByRole("button", { name: "Stop camera", exact: true }).click();
+  await page.evaluate(() => window.cameraTest.resolveModel());
+  await page.getByRole("button", { name: "Add stopped result", exact: true }).click();
+  await expect(result).toHaveText(original);
   await page.getByLabel("Pain after",{exact:true}).fill("2");
   await page.getByRole("button",{name:"Save measurements and pain check",exact:true}).click();
   await expect(page.getByText("Measurements and pain check saved. Open Progress to see your results.")).toBeVisible();
