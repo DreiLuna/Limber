@@ -42,6 +42,35 @@ class Decision:
     reasons: list[str] = field(default_factory=list)
 
 
+def explain_reasons(reasons: Sequence[str]) -> list[str]:
+    """Translate recorded rule codes into user-facing explanations."""
+    messages = {
+        "red_flag_reported": "You reported a warning symptom.",
+        "red_flag:": "You reported a warning symptom during your check-in.",
+        "unsupported_region:": "Your selected body region is outside LIMBER’s supported scope.",
+        "pain_too_high:": "Your check-in pain rating exceeded LIMBER’s limit.",
+        "session_pain_": "A session pain rating reached the referral threshold.",
+        "completion_": "Your weekly session completion was below the target.",
+        "avg_pain_rose_": "Your average pain increased enough to trigger a plan review.",
+        "no_improvement_after_": "Your average pain has not improved since your check-in.",
+        "stable_pain_and_high_completion": "You met your completion target and your average pain did not rise.",
+        "insufficient_eligible_exercises_for_increase": "Too few exercises at the next level match your check-in.",
+        "already_at_minimum_frequency": "Your plan is already at one session per week.",
+    }
+    explanations = []
+    for reason in reasons:
+        message = next(
+            (text for code, text in messages.items() if reason == code or (
+                code.endswith(("_", ":")) and reason.startswith(code)
+            )), None,
+        )
+        if reason.endswith("_weeks_since_assessment"):
+            message = "Your scheduled check-in is due."
+        if message and message not in explanations:
+            explanations.append(message)
+    return explanations
+
+
 def _avg(weeks: Sequence[WeekStats], i: int) -> float | None:
     return weeks[i].avg_post_pain if len(weeks) >= -i else None
 
