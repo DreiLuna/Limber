@@ -23,6 +23,7 @@ export default function CameraPage() {
   const detector = useRef<PoseLandmarker | null>(null);
   const frame = useRef(0);
   const generation = useRef(0);
+  const recording = useRef(false);
   const [status, setStatus] = useState<"off" | "loading" | "running">("off");
   const [result, setResult] = useState(() => counter.current.reset());
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +49,12 @@ export default function CameraPage() {
   }
 
   function stop() {
+    if (recording.current) {
+      recording.current = false;
+      setResult(counter.current.update(null, performance.now()));
+    }
     release();
     setStatus("off");
-    setResult(counter.current.update(null, performance.now()));
   }
 
   useEffect(() => {
@@ -75,12 +79,19 @@ export default function CameraPage() {
       });
       if (generation.current !== run) { media.getTracks().forEach((track) => track.stop()); return; }
       stream.current = media;
+      media.getVideoTracks().forEach((track) => track.addEventListener("ended", () => {
+        if (generation.current === run) {
+          stop();
+          setError("The camera disconnected. Reconnect it and start again.");
+        }
+      }, { once: true }));
       const video = videoRef.current!;
       video.srcObject = media;
       await video.play();
       if (generation.current !== run) return;
       stage = "model";
       const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
+      if (generation.current !== run) return;
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
       if (generation.current !== run) return;
       const model = await PoseLandmarker.createFromOptions(vision, {
@@ -94,10 +105,9 @@ export default function CameraPage() {
       let lastFrameTime = 0;
       const began = performance.now();
       setResult(counter.current.reset());
+      setHeld(0);
+      recording.current = true;
       setStatus("running");
-      media.getVideoTracks().forEach((track) => track.addEventListener("ended", () => {
-        if (generation.current === run) { stop(); setError("The camera disconnected. Reconnect it and start again."); }
-      }, { once: true }));
 
       function tick(now: number) {
         if (generation.current !== run) return;
