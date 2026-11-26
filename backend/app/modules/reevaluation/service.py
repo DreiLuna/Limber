@@ -72,16 +72,16 @@ def _reschedule(db: Session, plan: RecoveryPlan, now: datetime, weeks: int) -> N
     for day, week in build_schedule(plan.start_date, plan.frequency_per_week, weeks):
         if day <= now.date() or day in remaining:
             continue
-        db.add(ScheduledSession(plan_id=plan.id, user_id=plan.user_id, scheduled_date=day, week_index=week))
+        scheduled = ScheduledSession(plan_id=plan.id, user_id=plan.user_id, scheduled_date=day, week_index=week)
+        db.add(scheduled)
+        db.flush()
         db.add(Notification(
             user_id=plan.user_id, kind="reminder", read=False,
+            scheduled_session_id=scheduled.id,
             send_at=datetime.combine(day, time(9), tzinfo=UTC),
             message=f"Your updated LIMBER plan has a session on {day.isoformat()}.",
         ))
-scheduled = ScheduledSession(plan_id=plan.id, user_id=plan.user_id, scheduled_date=day, week_index=week)
-        db.add(scheduled)
-        db.flush()user_id=plan.user_id, kind="reminder", read=False,
-            scheduled_session_id=scheduled.id,
+
 
 def reevaluate_plan(db: Session, plan: RecoveryPlan) -> ReevaluationDecision:
     """Caller holds the plan row lock and commits together with any session log."""
