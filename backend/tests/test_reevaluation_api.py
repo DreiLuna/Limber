@@ -111,21 +111,7 @@ def test_terminal_actions_stop_plan_and_require_new_intake(client, seed, weeks, 
     for _ in range(2):
         result = client.post("/api/reevaluations", headers=headers)
         assert result.status_code == 200 and result.json()["action"] == action
-    assert client.get("/api/plans/current", headers=headers).status_code == 404from app.modules.notifications import email_reminders
-from app.modules.notifications.models import Notificationfrom app.modules.sessions.models import ExerciseSession, PainReport
-from app.modules.users.models import Userdef test_session_save_automatically_applies_weekly_reduction(client, seed, monkeypatch):assert {notice["send_at"][:10] for notice in reminders} == future_dates
-    sent = []
-    monkeypatch.setattr(email_reminders, "_smtp_ready", lambda: True)
-    monkeypatch.setattr(email_reminders, "_send_email", lambda recipient, day: sent.append((recipient, day)))
-    with SessionLocal() as db:
-        user = db.get(User, db.get(RecoveryPlan, plan_id).user_id)
-        next_day = min(item.scheduled_date for item in db.scalars(select(ScheduledSession).where(
-            ScheduledSession.plan_id == plan_id, ScheduledSession.scheduled_date > NOW.date(),
-        )))
-        due_at = datetime.combine(next_day, datetime.min.time(), tzinfo=UTC)
-        email_reminders.deliver_due_reminder_emails(db, due_at)
-        email_reminders.deliver_due_reminder_emails(db, due_at)
-        assert [day for recipient, day in sent if recipient == user.email] == [next_day]
+    assert client.get("/api/plans/current", headers=headers).status_code == 404
     assert client.post("/api/plans", headers=headers).status_code == 409
     with SessionLocal() as db:
         assert db.get(RecoveryPlan, plan_id).status == ("referred" if action == "refer" else "reassessment_required")
